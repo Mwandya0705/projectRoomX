@@ -29,6 +29,7 @@ CREATE TABLE rooms (
   creator_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   description TEXT,
+  category VARCHAR(50) DEFAULT 'Other',
   is_live BOOLEAN DEFAULT false,
   subscription_price_id VARCHAR(255), -- Stripe Price ID
   subscription_product_id VARCHAR(255), -- Stripe Product ID
@@ -39,6 +40,7 @@ CREATE TABLE rooms (
 );
 
 CREATE INDEX idx_rooms_creator_id ON rooms(creator_id);
+CREATE INDEX idx_rooms_category ON rooms(category);
 CREATE INDEX idx_rooms_subscription_product_id ON rooms(subscription_product_id);
 ```
 

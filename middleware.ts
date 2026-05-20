@@ -15,7 +15,6 @@ const publicRoutes = [
   '/sign-in',
   '/sign-up',
   '/auth',
-  '/api/webhooks/stripe',
   '/api/webhooks/clerk',
   '/api/webhooks/clickpesa',
 ]

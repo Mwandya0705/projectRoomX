@@ -30,6 +30,7 @@ export default function CreateRoomPage() {
     adminEmail: '', 
     capacity: 'public' as CapacityType,
     price: '',
+    category: 'Other',
   })
   const [inviteEmails, setInviteEmails] = useState<string[]>([])
   const [currentInviteEmail, setCurrentInviteEmail] = useState('')
@@ -82,6 +83,7 @@ export default function CreateRoomPage() {
         body: JSON.stringify({
           title: formData.title,
           description: formData.description || null,
+          category: formData.category,
           price: price,
           role: formData.role,
           adminEmail: formData.role === 'member' ? formData.adminEmail : null,
@@ -152,6 +154,22 @@ export default function CreateRoomPage() {
                          rows={2}
                          className="w-full bg-transparent border-b-2 border-black/10 py-4 text-3xl font-nanum placeholder:text-[#01140e]/50 focus:border-[#10b981] outline-none text-black transition-all resize-none"
                        />
+                    </div>
+
+                    <div className="group">
+                       <label className="text-[10px] font-black text-[#0d2a21] uppercase tracking-[0.2em] mb-4 block">Category</label>
+                       <div className="flex flex-wrap gap-4">
+                          {['Trading', 'Content Creation', 'Education', 'Consulting', 'Other'].map((cat) => (
+                            <button 
+                              key={cat}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, category: cat })}
+                              className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all shadow-sm ${formData.category === cat ? 'bg-[#10b981] text-[#0d2a21]' : 'bg-white border border-black/5 text-[#0d2a21]/60 hover:bg-white/80'}`}
+                            >
+                               {cat}
+                            </button>
+                          ))}
+                       </div>
                     </div>
 
                     {step === 1 && (

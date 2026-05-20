@@ -6,6 +6,7 @@ import { z } from 'zod'
 const createRoomSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().optional().nullable(),
+  category: z.string().optional().default('Other'),
   price: z.number().nonnegative().optional(), // Price in TZS, optional for public rooms
   role: z.enum(['admin', 'member']),
   adminEmail: z.string().email().optional().nullable(),
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { title, description, price, role, adminEmail, capacity, isPublic } = createRoomSchema.parse(body)
+    const { title, description, category, price, role, adminEmail, capacity, isPublic } = createRoomSchema.parse(body)
 
     // Validate role and admin email
     if (role === 'member' && !adminEmail) {
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
           admin_id: adminId,
           title,
           description,
+          category,
           is_public: isPublic || false,
           capacity: capacity || null,
           subscription_price_id: price && price > 0 ? `${price}:TZS` : null,

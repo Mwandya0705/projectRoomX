@@ -1,9 +1,22 @@
 import { Link } from 'next-view-transitions'
 import { createClient } from '@/lib/supabase/server'
 import NavigationClient from '@/components/NavigationClient'
+import { notFound } from 'next/navigation'
 
-export default async function RoomsPage() {
+export default async function CreatorPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { id } = params
+
+  // Fetch the creator
+  const { data: creator } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (!creator) {
+    notFound()
+  }
 
   // Fetch the currently authenticated user
   const { data: { user } } = await supabase.auth.getUser()
@@ -22,15 +35,15 @@ export default async function RoomsPage() {
     }
   }
 
-  // Fetch all rooms with their creators
+  // Fetch all rooms for this creator
   const { data: rooms } = await supabase
     .from('rooms')
     .select('*, creator:users!rooms_creator_id_fkey(*)')
+    .eq('creator_id', id)
     .order('created_at', { ascending: false })
 
   // Format rooms for display
   const formattedRooms = (rooms || []).map(room => {
-    // Check if user is a member (either creator or has active sub)
     const isMember = user ? (room.creator_id === user.id || subscribedRoomIds.has(room.id)) : false;
 
     return {
@@ -44,48 +57,47 @@ export default async function RoomsPage() {
       createdAt: room.created_at,
       isMember: isMember,
       creator: room.creator ? {
-      id: room.creator.id,
-      name: room.creator.name,
-      email: room.creator.email,
-      imageUrl: room.creator.image_url,
-    } : {
-      id: room.creator_id,
-      name: null,
-      email: 'Unknown',
-      imageUrl: null,
-    },
-  }})
+        id: room.creator.id,
+        name: room.creator.name,
+        email: room.creator.email,
+        imageUrl: room.creator.image_url,
+      } : {
+        id: room.creator_id,
+        name: null,
+        email: 'Unknown',
+        imageUrl: null,
+      },
+    }
+  })
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 pt-24">
       <NavigationClient />
 
       <main className="max-w-7xl mx-auto px-4 pt-30 sm:px-6 lg:px-8 py-8">
-        <div className="mb-12 flex justify-between items-end">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 tracking-tighter mb-2">Browse Rooms</h1>
-            <p className="text-gray-500 font-medium italic">Discover live rooms from the sanctuary of creators.</p>
-          </div>
-          <Link
-            href="/dashboard"
-            className="px-6 py-2 bg-[#062b2a] text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl"
-          >
-            Manager Dashboard
-          </Link>
+        <div className="mb-16 flex flex-col items-center text-center">
+          {creator.image_url ? (
+            <img
+              src={creator.image_url}
+              alt={creator.name || 'Creator'}
+              className="w-32 h-32 rounded-full object-cover shadow-xl border-4 border-white mb-6"
+            />
+          ) : (
+            <div className="w-32 h-32 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-4xl mb-6 shadow-xl border-4 border-white">
+              {creator.name?.charAt(0).toUpperCase() || '?'}
+            </div>
+          )}
+          <h1 className="text-4xl font-bold text-gray-900 tracking-tighter mb-2">{creator.name || 'Anonymous Creator'}</h1>
+          <p className="text-gray-500 font-medium italic">Creator on RoomX</p>
+        </div>
+
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tighter mb-2">Creator's Rooms</h2>
         </div>
 
         {formattedRooms.length === 0 ? (
           <div className="bg-white rounded-[2.5rem] shadow-sm border border-black/5 p-20 text-center">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
-               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-            </div>
-            <p className="text-gray-400 font-medium text-lg mb-8">The sanctuary is currently silent.</p>
-            <Link
-              href="/dashboard"
-              className="inline-block px-10 py-3 sm:py-3.5 bg-[#062b2a] text-white rounded-full font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-2xl"
-            >
-              Create the First Room
-            </Link>
+            <p className="text-gray-400 font-medium text-lg mb-8">This creator hasn't opened any rooms yet.</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -113,26 +125,7 @@ export default async function RoomsPage() {
                   </div>
 
                   <div className="flex items-center gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <Link href={`/creator/${room.creator.id}`} className="group/creator flex items-center gap-4 flex-1">
-                      {room.creator.imageUrl ? (
-                        <img
-                          src={room.creator.imageUrl}
-                          alt={room.creator.name || 'Creator'}
-                          className="w-12 h-12 rounded-xl object-cover shadow-sm border-2 border-white"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 font-bold">
-                          {room.creator.name?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 leading-none mb-1 group-hover/creator:text-[#062b2a] transition-colors">
-                          {room.creator.name || 'Anonymous Creator'}
-                        </p>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{room.creator.email.split('@')[0]}</p>
-                      </div>
-                    </Link>
-                    <div className="ml-auto flex flex-col items-end gap-1">
+                    <div className="ml-auto flex flex-col items-end gap-1 w-full text-right">
                         {room.isLive && (
                           <span className="px-3 py-1 bg-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm">
                             LIVE
