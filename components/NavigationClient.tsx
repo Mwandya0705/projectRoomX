@@ -198,9 +198,9 @@ export default function NavigationClient() {
                               Sign In
                             </button>
                           </Link>
-                          <Link href="/book-a-demo">
+                          <Link href="/dashboard">
                             <button className="px-6 py-3 bg-emerald-800 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-emerald-950 transition-all shadow-sm active:scale-95">
-                              Get a demo
+                              Dashboard
                             </button>
                           </Link>
                         </>
@@ -211,7 +211,10 @@ export default function NavigationClient() {
                               Dashboard
                             </button>
                           </Link>
-                          <div className="relative">
+                          <div 
+                            className="relative"
+                            onMouseLeave={() => setShowUserMenu(false)}
+                          >
                             <button 
                               onClick={() => setShowUserMenu(!showUserMenu)} 
                               className="w-10 h-10 rounded-full bg-emerald-800 flex items-center justify-center text-white font-bold overflow-hidden border-2 border-white shadow-sm hover:scale-105 transition-transform"
@@ -355,9 +358,9 @@ export default function NavigationClient() {
               {mounted && (
                 !user ? (
                   <>
-                    <Link href="/book-a-demo" onClick={closeMobileMenu}>
+                    <Link href="/dashboard" onClick={closeMobileMenu}>
                       <button className="w-full py-4 bg-emerald-800 text-white rounded-full text-sm font-bold uppercase tracking-widest hover:bg-emerald-950 transition-all shadow-md active:scale-95">
-                        Get a demo
+                        Dashboard
                       </button>
                     </Link>
                     <Link href="/sign-in" onClick={closeMobileMenu}>
