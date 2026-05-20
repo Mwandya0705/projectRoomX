@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
-import { createClient } from '@/lib/supabase/server'
 
 // Define public routes that don't require authentication
 const publicRoutes = [
@@ -20,8 +19,8 @@ const publicRoutes = [
 ]
 
 export default async function middleware(request: NextRequest) {
-  // First, refresh the session
-  const response = await updateSession(request)
+  // First, refresh the session and get the user
+  const { response, user } = await updateSession(request)
   
   // Check if we are on a public route
   const isPublicRoute = publicRoutes.some(route => 
@@ -34,9 +33,6 @@ export default async function middleware(request: NextRequest) {
 
   // Check authentication for private routes
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
     if (!user) {
       // Not authenticated, redirect to sign-in
       const url = request.nextUrl.clone()
