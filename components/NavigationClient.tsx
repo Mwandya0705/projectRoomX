@@ -226,14 +226,16 @@ export default function NavigationClient() {
                               )}
                             </button>
                             {showUserMenu && (
-                              <div className="absolute right-0 mt-3 w-52 bg-white rounded-[16px] shadow-xl border border-black/5 py-2.5 z-[60]">
-                                <div className="px-4 py-2 border-b border-gray-100 mb-2">
-                                  <p className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest truncate">Account</p>
-                                  <p className="text-xs font-bold text-gray-800 truncate">{user.email}</p>
+                              <div className="absolute right-0 top-full pt-3 z-[60]">
+                                <div className="w-52 bg-white rounded-[16px] shadow-xl border border-black/5 py-2.5">
+                                  <div className="px-4 py-2 border-b border-gray-100 mb-2">
+                                    <p className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest truncate">Account</p>
+                                    <p className="text-xs font-bold text-gray-800 truncate">{user.email}</p>
+                                  </div>
+                                  <Link href="/profile" className="block px-4 py-2.5 text-xs font-bold text-gray-800 hover:bg-[#f5f6f2] transition-colors">Profile Settings</Link>
+                                  <Link href="/dashboard" className="block px-4 py-2.5 text-xs font-bold text-gray-800 hover:bg-[#f5f6f2] transition-colors">Creator Dashboard</Link>
+                                  <button onClick={() => { supabase.auth.signOut().then(() => window.location.reload()) }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors mt-2">Sign Out</button>
                                 </div>
-                                <Link href="/profile" className="block px-4 py-2.5 text-xs font-bold text-gray-800 hover:bg-[#f5f6f2] transition-colors">Profile Settings</Link>
-                                <Link href="/dashboard" className="block px-4 py-2.5 text-xs font-bold text-gray-800 hover:bg-[#f5f6f2] transition-colors">Creator Dashboard</Link>
-                                <button onClick={() => { supabase.auth.signOut().then(() => window.location.reload()) }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors mt-2">Sign Out</button>
                               </div>
                             )}
                           </div>
