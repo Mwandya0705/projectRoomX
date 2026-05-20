@@ -126,8 +126,8 @@ export default function HeroFinal() {
 
         <div className="mt-10">
           {!user ? (
-            <Link href="/dashboard/studio" className="inline-block px-8 py-3.5 rounded-full bg-emerald-950 text-white font-bold text-xs uppercase tracking-wider hover:bg-[#003c33] transition-all shadow-md hover:scale-105 active:scale-95">
-               Dashboard
+            <Link href="/book-a-demo" className="inline-block px-8 py-3.5 rounded-full bg-emerald-950 text-white font-bold text-xs uppercase tracking-wider hover:bg-[#003c33] transition-all shadow-md hover:scale-105 active:scale-95">
+               Get a demo
             </Link>
           ) : (
             <Link href="/dashboard/studio" className="inline-block px-8 py-3.5 rounded-full bg-emerald-950 text-white font-bold text-xs uppercase tracking-wider hover:bg-[#003c33] transition-all shadow-md hover:scale-105 active:scale-95">
