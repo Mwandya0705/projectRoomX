@@ -1,12 +1,8 @@
 import Stripe from 'stripe'
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY!
-
-if (!stripeSecretKey) {
-  throw new Error('Missing Stripe secret key')
-}
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'dummy_stripe_key_for_vercel_build'
 
 export const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2023-10-16',
 })
 
