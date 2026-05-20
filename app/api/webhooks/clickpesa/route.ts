@@ -1,5 +1,7 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { createClient } from '@/lib/supabase/server'
 import { verifyPayment } from '@/lib/clickpesa/server'
 
 /**
@@ -8,6 +10,7 @@ import { verifyPayment } from '@/lib/clickpesa/server'
  */
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createClient()
     const body = await request.json()
     console.log('[ClickPesa Webhook] Received webhook:', JSON.stringify(body, null, 2))
     
@@ -42,55 +45,55 @@ export async function POST(request: NextRequest) {
     // Handle successful payment
     if (payment.status === 'completed' || payment.status === 'success') {
       // Check if subscription already exists
-      const existingSubscription = await prisma.subscription.findFirst({
-        where: {
-          subscriberId: userId,
-          roomId: roomId,
-        },
-      })
+      const { data: existingSubscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('subscriber_id', userId)
+        .eq('room_id', roomId)
+        .single()
 
       if (existingSubscription) {
         // Update existing subscription
-        await prisma.subscription.update({
-          where: { id: existingSubscription.id },
-          data: {
+        await supabase
+          .from('subscriptions')
+          .update({
             status: 'active',
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-            cancelAtPeriodEnd: false,
-          },
-        })
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            cancel_at_period_end: false,
+          })
+          .eq('id', existingSubscription.id)
       } else {
         // Create new subscription
-        await prisma.subscription.create({
-          data: {
-            subscriberId: userId,
-            roomId: roomId,
-            stripeSubscriptionId: paymentId, // Using paymentId as subscription ID
-            stripeCustomerId: userId, // Using userId as customer ID
+        await supabase
+          .from('subscriptions')
+          .insert({
+            subscriber_id: userId,
+            room_id: roomId,
+            stripe_subscription_id: paymentId, // Using paymentId as subscription ID
+            stripe_customer_id: userId, // Using userId as customer ID
             status: 'active',
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-            cancelAtPeriodEnd: false,
-          },
-        })
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            cancel_at_period_end: false,
+          })
       }
     } else if (payment.status === 'failed' || payment.status === 'cancelled') {
       // Update subscription status if it exists
-      const subscription = await prisma.subscription.findFirst({
-        where: {
-          subscriberId: userId,
-          roomId: roomId,
-        },
-      })
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('subscriber_id', userId)
+        .eq('room_id', roomId)
+        .single()
 
       if (subscription) {
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: {
+        await supabase
+          .from('subscriptions')
+          .update({
             status: 'cancelled',
-          },
-        })
+          })
+          .eq('id', subscription.id)
       }
     }
 

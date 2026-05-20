@@ -34,7 +34,7 @@ model User {
 
 model Room {
   id                    String   @id @default(uuid()) @db.Uuid
-  creatorId             String   @unique @map("creator_id") @db.Uuid
+  creatorId             String   @map("creator_id") @db.Uuid
   adminId               String?  @map("admin_id") @db.Uuid
   title                 String   @db.VarChar(255)
   description           String?  @db.Text

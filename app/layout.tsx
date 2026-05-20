@@ -1,17 +1,26 @@
 import type { Metadata } from 'next'
-import { Inter, Montserrat } from 'next/font/google'
-import { ClerkProvider } from '@clerk/nextjs'
+import { Inter, Montserrat, Press_Start_2P, EB_Garamond } from 'next/font/google'
 import './globals.css'
-import localFont from "next/font/local"
+import ClientWrapper from '../components/ClientWrapper'
+import NavigationClient from '@/components/NavigationClient'
+import FooterDetails from '@/components/FooterDetails'
+import { ViewTransitions } from 'next-view-transitions'
+import TransitionProvider from '@/components/TransitionProvider'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat' })
-
-const satoshi = localFont({
-  src: "../public/fonts/Satoshi-Variable.woff2",
-  variable: "--font-satoshi",
-  weight: "100 900",
+const pressStart2P = Press_Start_2P({ 
+  weight: '400', 
+  subsets: ['latin'], 
+  variable: '--font-press-start' 
 })
+
+const ebGaramond = EB_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-eb-garamond',
+})
+
 export const metadata: Metadata = {
   title: 'RoomX - Private Live Rooms for Creators',
   description: 'Monetize your live content with subscription-based rooms',
@@ -23,11 +32,18 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en" className={`${satoshi.variable} ${montserrat.variable}`}>
-        <body className="font-sans antialiased">{children}</body>
+    <ViewTransitions>
+      <html lang="en" className={`${inter.variable} ${montserrat.variable} ${ebGaramond.variable} ${pressStart2P.variable}`}>
+        <body className="font-sans antialiased">
+          <TransitionProvider>
+            <NavigationClient />
+            <ClientWrapper>
+              {children}
+              <FooterDetails />
+            </ClientWrapper>
+          </TransitionProvider>
+        </body>
       </html>
-    </ClerkProvider>
+    </ViewTransitions>
   )
 }
-

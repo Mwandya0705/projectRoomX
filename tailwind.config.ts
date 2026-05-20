@@ -10,8 +10,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-satoshi)', "sans-serif"],
+        sans: ['var(--font-inter)', "sans-serif"],
         montserrat: ['var(--font-montserrat)', 'sans-serif'],
+        nanum: ['var(--font-eb-garamond)', 'serif'],
+        serif: ['var(--font-eb-garamond)', 'serif'],
+        'press-start': ['var(--font-press-start)', 'system-ui'],
       },
       spacing: {
         '82': '20.5rem',
@@ -27,4 +30,3 @@ const config: Config = {
 }
 
 export default config
-

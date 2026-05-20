@@ -1,6 +1,8 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe/server'
-import { prisma } from '@/lib/db/prisma'
+import { createClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
@@ -32,6 +34,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const supabase = createClient()
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -42,6 +46,7 @@ export async function POST(request: NextRequest) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
           await handleSubscriptionCreated(
+            supabase,
             session.metadata?.userId!,
             session.metadata?.roomId!,
             subscription
@@ -53,13 +58,13 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
-        await handleSubscriptionUpdated(subscription)
+        await handleSubscriptionUpdated(supabase, subscription)
         break
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
-        await handleSubscriptionDeleted(subscription)
+        await handleSubscriptionDeleted(supabase, subscription)
         break
       }
 
@@ -75,10 +80,10 @@ export async function POST(request: NextRequest) {
         if (invoice.subscription) {
           // Update subscription status to past_due
           const subscriptionId = invoice.subscription as string
-          await prisma.subscription.updateMany({
-            where: { stripeSubscriptionId: subscriptionId },
-            data: { status: 'past_due' },
-          })
+          await supabase
+            .from('subscriptions')
+            .update({ status: 'past_due' })
+            .eq('stripe_subscription_id', subscriptionId)
         }
         break
       }
@@ -98,52 +103,55 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleSubscriptionCreated(
+  supabase: any,
   userId: string,
   roomId: string,
   subscription: Stripe.Subscription
 ) {
   // Check if subscription already exists
-  const existing = await prisma.subscription.findUnique({
-    where: { stripeSubscriptionId: subscription.id },
-  })
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('stripe_subscription_id', subscription.id)
+    .single()
 
   if (existing) {
     return // Already exists
   }
 
   // Create subscription record
-  await prisma.subscription.create({
-    data: {
-      subscriberId: userId,
-      roomId: roomId,
-      stripeSubscriptionId: subscription.id,
-      stripeCustomerId: subscription.customer as string,
+  await supabase
+    .from('subscriptions')
+    .insert({
+      subscriber_id: userId,
+      room_id: roomId,
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id: subscription.customer as string,
       status: subscription.status === 'active' ? 'active' : 'incomplete',
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    },
-  })
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      cancel_at_period_end: subscription.cancel_at_period_end,
+    })
 }
 
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  await prisma.subscription.updateMany({
-    where: { stripeSubscriptionId: subscription.id },
-    data: {
+async function handleSubscriptionUpdated(supabase: any, subscription: Stripe.Subscription) {
+  await supabase
+    .from('subscriptions')
+    .update({
       status: subscription.status === 'active' ? 'active' : 'canceled',
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    },
-  })
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      cancel_at_period_end: subscription.cancel_at_period_end,
+    })
+    .eq('stripe_subscription_id', subscription.id)
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  await prisma.subscription.updateMany({
-    where: { stripeSubscriptionId: subscription.id },
-    data: {
+async function handleSubscriptionDeleted(supabase: any, subscription: Stripe.Subscription) {
+  await supabase
+    .from('subscriptions')
+    .update({
       status: 'canceled',
-    },
-  })
+    })
+    .eq('stripe_subscription_id', subscription.id)
 }
 

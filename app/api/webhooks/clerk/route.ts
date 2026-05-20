@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
-import { prisma } from '@/lib/db/prisma'
+import { createClient } from '@/lib/supabase/server'
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET!
 
@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
 
   // Handle the webhook
   const eventType = evt.type
+  const supabase = createClient()
 
   try {
     if (eventType === 'user.created' || eventType === 'user.updated') {
@@ -64,42 +65,40 @@ export async function POST(request: NextRequest) {
       const email = email_addresses[0]?.email_address
       const name = [first_name, last_name].filter(Boolean).join(' ') || null
 
-      // Upsert user in database using Prisma
-      const dbUser = await prisma.user.upsert({
-        where: { clerkId: id },
-        update: {
+      // Upsert user in database using Supabase
+      const { data: dbUser, error: upsertError } = await supabase
+        .from('users')
+        .upsert({
+          clerk_id: id,
           email: email || '',
           name: name,
-          imageUrl: image_url || null,
-          updatedAt: new Date(),
-        },
-        create: {
-          clerkId: id,
-          email: email || '',
-          name: name,
-          imageUrl: image_url || null,
-        },
-      })
+          image_url: image_url || null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'clerk_id'
+        })
+        .select()
+        .single()
 
-      // If this is a new user, check for pending invitations by email
-      if (eventType === 'user.created' && email) {
-        // Find pending invitations for this email
-        // Note: We'll store invitations in a table, but for now, we'll check if there are any rooms
-        // where this user should be added based on email matching
-        // This is a simple approach - in production, you'd have an invitations table
-        
-        console.log(`[Clerk Webhook] User created: ${email} (${dbUser.id}). Checking for pending invitations...`)
-        // Pending invitations will be handled when user signs in for the first time
+      if (upsertError) {
+        throw new Error(`Error upserting user: ${upsertError.message}`)
       }
+
+      console.log(`[Clerk Webhook] User sync successful: ${email} (${dbUser.id})`)
     }
 
     if (eventType === 'user.deleted') {
       const { id } = evt.data
 
       // Delete user from database
-      await prisma.user.deleteMany({
-        where: { clerkId: id },
-      })
+      const { error: deleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('clerk_id', id)
+
+      if (deleteError) {
+        throw deleteError
+      }
     }
 
     return NextResponse.json({ received: true })

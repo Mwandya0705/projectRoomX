@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getUserByAuthId } from '@/lib/utils/auth'
 import { z } from 'zod'
 
 const updateRoomSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().optional().nullable(),
+  is_public: z.boolean().optional(),
+  price: z.number().nonnegative().optional(),
 })
 
 /**
  * GET /api/rooms/[id]
- * Get a specific room by ID
  */
 export async function GET(
   request: NextRequest,
@@ -19,34 +19,32 @@ export async function GET(
 ) {
   try {
     const { id } = params
-    const roomData = await prisma.room.findUnique({
-      where: { id },
-    })
+    const supabase = createClient()
+    const { data: roomData } = await supabase
+      .from('rooms')
+      .select('*, creator:users!rooms_creator_id_fkey(*)')
+      .eq('id', id)
+      .single()
 
     if (!roomData) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 })
     }
 
-    // Fetch creator separately
-    const creator = await prisma.user.findUnique({
-      where: { id: roomData.creatorId },
-    })
-
     const room = {
       id: roomData.id,
-      creatorId: roomData.creatorId,
+      creatorId: roomData.creator_id,
       title: roomData.title,
       description: roomData.description,
-      isLive: roomData.isLive,
-      subscriptionPriceId: roomData.subscriptionPriceId,
-      subscriptionProductId: roomData.subscriptionProductId,
-      createdAt: roomData.createdAt,
-      updatedAt: roomData.updatedAt,
-      creator: creator ? {
-        id: creator.id,
-        name: creator.name,
-        email: creator.email,
-        imageUrl: creator.imageUrl,
+      isLive: roomData.is_live,
+      subscriptionPriceId: roomData.subscription_price_id,
+      subscriptionProductId: roomData.subscription_product_id,
+      createdAt: roomData.created_at,
+      updatedAt: roomData.updated_at,
+      creator: roomData.creator ? {
+        id: roomData.creator.id,
+        name: roomData.creator.name,
+        email: roomData.creator.email,
+        imageUrl: roomData.creator.image_url,
       } : null,
     }
 
@@ -59,56 +57,52 @@ export async function GET(
 
 /**
  * PATCH /api/rooms/[id]
- * Update a room (only admin or creator can update)
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await getUserByClerkId(clerkId)
+    const user = await getUserByAuthId(authUser.id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const { id } = params
-    // Verify user is admin or creator of the room
-    const room = await prisma.room.findUnique({
-      where: { id },
-    })
+    const { data: room } = await supabase.from('rooms').select('*').eq('id', id).single()
 
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 })
     }
 
-    const isCreator = room.creatorId === user.id
-    const isAdmin = room.adminId === user.id
-
-    // Only creator or admin can edit the room
-    if (!isCreator && !isAdmin) {
-      return NextResponse.json(
-        { error: 'Only room admins can edit the room' },
-        { status: 403 }
-      )
+    if (room.creator_id !== user.id && room.admin_id !== user.id) {
+      return NextResponse.json({ error: 'Only room admins can edit the room' }, { status: 403 })
     }
 
-    // Parse request body
     const body = await request.json()
     const updates = updateRoomSchema.parse(body)
 
-    // Update room
-    const updatedRoom = await prisma.room.update({
-      where: { id },
-      data: {
-        title: updates.title,
-        description: updates.description,
-      },
-    })
+    const { data: updatedRoom, error } = await supabase
+      .from('rooms')
+      .update({
+        ...(updates.title !== undefined && { title: updates.title }),
+        ...(updates.description !== undefined && { description: updates.description }),
+        ...(updates.is_public !== undefined && { is_public: updates.is_public }),
+        ...(updates.price !== undefined && { subscription_price_id: `${updates.price}:TZS` }),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
 
     return NextResponse.json({ room: updatedRoom })
   } catch (error) {
@@ -120,3 +114,43 @@ export async function PATCH(
   }
 }
 
+/**
+ * DELETE /api/rooms/[id]
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = await getUserByAuthId(authUser.id)
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const { id } = params
+    const { data: room, error: roomError } = await supabase.from('rooms').select('creator_id').eq('id', id).maybeSingle()
+
+    if (roomError || !room) {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 })
+    }
+
+    if (room.creator_id !== user.id) {
+      return NextResponse.json({ error: 'Only creator can delete room' }, { status: 403 })
+    }
+
+    const { error: deleteError } = await supabase.from('rooms').delete().eq('id', id)
+    if (deleteError) throw deleteError
+
+    return NextResponse.json({ message: 'Sanctuary successfully archived and deleted' })
+  } catch (error) {
+    console.error('Error deleting room:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

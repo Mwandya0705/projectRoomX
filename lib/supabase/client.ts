@@ -1,11 +1,26 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
+import { SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+let client: SupabaseClient | null = null
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+export function createClient() {
+  if (client) return client
+
+  client = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dummy-supabase-url-for-build.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'dummy-supabase-key-for-vercel-build',
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: 'roomx-sanctuary-auth-token',
+      },
+      global: {
+        headers: { 'x-application-name': 'roomx-sanctuary' },
+      },
+    }
+  )
+  
+  return client
 }
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-

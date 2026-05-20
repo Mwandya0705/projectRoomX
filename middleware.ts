@@ -1,25 +1,66 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
+import { createClient } from '@/lib/supabase/server'
 
-const isPublicRoute = createRouteMatcher([
+// Define public routes that don't require authentication
+const publicRoutes = [
   '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/api/webhooks/stripe(.*)',
-  '/api/webhooks/clerk(.*)',
-  '/api/webhooks/clickpesa(.*)',
-])
+  '/discover',
+  '/products',
+  '/solutions',
+  '/peer-stories',
+  '/knowledge-hub',
+  '/company',
+  '/book-a-demo',
+  '/sign-in',
+  '/sign-up',
+  '/auth',
+  '/api/webhooks/stripe',
+  '/api/webhooks/clerk',
+  '/api/webhooks/clickpesa',
+]
 
-export default clerkMiddleware((auth, req) => {
-  if (!isPublicRoute(req)) {
-    auth().protect()
+export default async function middleware(request: NextRequest) {
+  // First, refresh the session
+  const response = await updateSession(request)
+  
+  // Check if we are on a public route
+  const isPublicRoute = publicRoutes.some(route => 
+    request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '/')
+  )
+
+  if (isPublicRoute) {
+    return response
   }
-})
+
+  // Check authentication for private routes
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      // Not authenticated, redirect to sign-in
+      const url = request.nextUrl.clone()
+      url.pathname = '/sign-in'
+      url.searchParams.set('redirectED', request.nextUrl.pathname)
+      return NextResponse.redirect(url)
+    }
+  } catch (error) {
+    console.error('Middleware auth check error:', error)
+  }
+
+  return response
+}
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

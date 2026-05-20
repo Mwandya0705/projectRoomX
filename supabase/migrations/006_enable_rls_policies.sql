@@ -13,13 +13,50 @@ CREATE POLICY "Users can read own data"
   ON users FOR SELECT
   USING (true); -- Simplified for MVP - adjust based on your needs
 
--- Rooms are publicly readable
+-- Rooms Policies
 CREATE POLICY "Rooms are publicly readable"
   ON rooms FOR SELECT
   USING (true);
 
+CREATE POLICY "Users can create rooms"
+  ON rooms FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = creator_id);
+
+CREATE POLICY "Creators can update own rooms"
+  ON rooms FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = creator_id);
+
+CREATE POLICY "Creators can delete own rooms"
+  ON rooms FOR DELETE
+  TO authenticated
+  USING (auth.uid() = creator_id);
+
+-- Room Members Policies
+ALTER TABLE room_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Room members are readable by everyone"
+  ON room_members FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can add themselves to rooms"
+  ON room_members FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Creators can add members to their rooms"
+  ON room_members FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM rooms
+      WHERE rooms.id = room_id AND rooms.creator_id = auth.uid()
+    )
+  );
+
 -- Users can read their own subscriptions
 CREATE POLICY "Users can read own subscriptions"
   ON subscriptions FOR SELECT
-  USING (true); -- Simplified for MVP - adjust based on your needs
+  USING (true); -- Simplified for MVP
 

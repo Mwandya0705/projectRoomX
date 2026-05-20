@@ -1,43 +1,42 @@
-// Unified database client that works with local PostgreSQL or Supabase
-// Note: Prisma is available via @/lib/db/prisma for direct use
-import { db as postgresDb, insert, update, deleteRows, query } from './postgres'
+import { db as postgresDb, insert as pgInsert, update as pgUpdate, deleteRows as pgDeleteRows, query as pgQuery } from './postgres'
 import { createClient } from '@supabase/supabase-js'
 
-const useLocalPostgres = !!process.env.DATABASE_URL
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+const useSupabase = !!supabaseUrl && !!supabaseKey
 
-if (useLocalPostgres) {
+let supabaseAdmin: any
+let insert: any
+let update: any
+let deleteRows: any
+let query: any
+
+if (!useSupabase) {
   // Export PostgreSQL client (compatible with existing Supabase-style queries)
-  export const supabaseAdmin = postgresDb
-  export { insert, update, deleteRows, query }
+  supabaseAdmin = postgresDb
+  insert = pgInsert
+  update = pgUpdate
+  deleteRows = pgDeleteRows
+  query = pgQuery
 } else {
   // Use Supabase
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error(
-      'Missing Supabase environment variables. Either set DATABASE_URL for local PostgreSQL or set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for Supabase.'
-    )
-  }
-
-  export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   })
 
-  // Re-export Supabase methods as compatible functions
-  export async function insert(table: string, data: Record<string, any>) {
+  insert = async (table: string, data: Record<string, any>) => {
     const result = await supabaseAdmin.from(table).insert(data).select().single()
     return result
   }
 
-  export async function update(
+  update = async (
     table: string,
     data: Record<string, any>,
     where: Record<string, any>
-  ) {
+  ) => {
     let query = supabaseAdmin.from(table).update(data)
     for (const [key, value] of Object.entries(where)) {
       query = query.eq(key, value)
@@ -45,12 +44,18 @@ if (useLocalPostgres) {
     return await query.select()
   }
 
-  export async function deleteRows(table: string, where: Record<string, any>) {
+  deleteRows = async (table: string, where: Record<string, any>) => {
     let query = supabaseAdmin.from(table).delete()
     for (const [key, value] of Object.entries(where)) {
       query = query.eq(key, value)
     }
     return await query.select()
   }
+
+  query = async (sql: string, params: any[]) => {
+     console.warn('Direct SQL query not supported through Supabase SDK client. Please use from().select() instead.')
+     return { data: null, error: 'SQL queries not supported' }
+  }
 }
 
+export { supabaseAdmin, insert, update, deleteRows, query }

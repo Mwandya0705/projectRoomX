@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getUserByAuthId } from '@/lib/utils/auth'
 import { z } from 'zod'
 
 const createRoomSchema = z.object({
@@ -12,6 +11,7 @@ const createRoomSchema = z.object({
   adminEmail: z.string().email().optional().nullable(),
   capacity: z.number().int().min(2).max(8).optional().nullable(),
   isPublic: z.boolean().default(false),
+  inviteEmails: z.array(z.string().email()).optional().default([]),
 })
 
 /**
@@ -20,27 +20,17 @@ const createRoomSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user from database
-    const user = await getUserByClerkId(clerkId)
+    // Get user from database using their Supabase ID
+    const user = await getUserByAuthId(authUser.id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Check if user already has a room
-    const existingRoom = await prisma.room.findUnique({
-      where: { creatorId: user.id },
-    })
-
-    if (existingRoom) {
-      return NextResponse.json(
-        { error: 'You already have a room. Only one room per creator is allowed.' },
-        { status: 400 }
-      )
     }
 
     // Parse request body
@@ -58,10 +48,13 @@ export async function POST(request: NextRequest) {
     // Find admin user if role is member
     let adminId: string | null = null
     if (role === 'member' && adminEmail) {
-      const adminUser = await prisma.user.findUnique({
-        where: { email: adminEmail },
-      })
-      if (!adminUser) {
+      const { data: adminUser, error: adminError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', adminEmail)
+        .single()
+
+      if (adminError || !adminUser) {
         return NextResponse.json(
           { error: 'Admin user not found. Please ensure the admin has an account.' },
           { status: 404 }
@@ -82,67 +75,102 @@ export async function POST(request: NextRequest) {
 
     // Create room in database
     try {
-      const room = await prisma.room.create({
-        data: {
-          creatorId: user.id,
-          adminId: adminId,
+      const { data: room, error: roomError } = await supabase
+        .from('rooms')
+        .insert({
+          creator_id: user.id,
+          admin_id: adminId,
           title,
           description,
-          isPublic: isPublic || false,
+          is_public: isPublic || false,
           capacity: capacity || null,
-          // Store price as a string in subscriptionPriceId for Click Pesa
-          // Format: "amount:currency" e.g., "29900:TZS" or "29.99:USD"
-          subscriptionPriceId: price && price > 0 ? `${price}:TZS` : null,
-          subscriptionProductId: null, // Not needed for Click Pesa
-          isLive: false,
-        },
-      })
+          subscription_price_id: price && price > 0 ? `${price}:TZS` : null,
+          is_live: false,
+        })
+        .select()
+        .single()
+
+      if (roomError || !room) {
+        throw new Error(roomError?.message || 'Failed to create room')
+      }
 
       // Add creator as a room member
-      await prisma.roomMember.create({
-        data: {
-          roomId: room.id,
-          userId: user.id,
+      const { error: memberError } = await supabase
+        .from('room_members')
+        .insert({
+          room_id: room.id,
+          user_id: user.id,
           role: role === 'admin' ? 'admin' : 'member',
-          invitedBy: null,
-        },
-      })
+        })
+
+      if (memberError) throw memberError
 
       // If admin is different from creator, add admin as member too
       if (adminId && adminId !== user.id) {
-        await prisma.roomMember.create({
-          data: {
-            roomId: room.id,
-            userId: adminId,
+        await supabase
+          .from('room_members')
+          .insert({
+            room_id: room.id,
+            user_id: adminId,
             role: 'admin',
-            invitedBy: user.id,
-          },
+            invited_by: user.id,
+          })
+      }
+
+      // NEW: Handle additional early invitees
+      const inviteEmails = (body as any).inviteEmails as string[]
+      if (inviteEmails && inviteEmails.length > 0) {
+        const { generateInvitationLink, sendInvitationEmail } = await import('@/lib/email/server')
+        
+        const invitePromises = inviteEmails.map(async (email) => {
+          try {
+            // Use maybeSingle to prevent unnecessary throws if user doesn't exist yet
+            const { data: inviteUser, error: userFetchError } = await supabase
+              .from('users')
+              .select('id')
+              .eq('email', email)
+              .maybeSingle()
+            
+            if (userFetchError) {
+              console.error(`[RoomsAPI] Error fetching guest profile for ${email}:`, userFetchError)
+            }
+
+            if (inviteUser) {
+              const { error: joinError } = await supabase.from('room_members').insert({
+                room_id: room.id,
+                user_id: inviteUser.id,
+                role: 'member',
+                invited_by: user.id
+              })
+              if (joinError) console.error(`[RoomsAPI] Error auto-joining ${email}:`, joinError)
+            } else {
+              const link = generateInvitationLink(email, room.id, user.id)
+              await sendInvitationEmail({
+                to: email,
+                roomTitle: room.title,
+                inviterName: user.name || 'A room creator',
+                invitationLink: link
+              })
+            }
+          } catch (e) {
+            console.error(`[RoomsAPI] Critical failure inviting ${email}:`, e)
+          }
         })
+        await Promise.allSettled(invitePromises)
       }
 
       return NextResponse.json({ room }, { status: 201 })
     } catch (error) {
       console.error('Error creating room:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to create room'
-      const errorDetails = error instanceof Error ? error.stack : String(error)
-      console.error('Error details:', errorDetails)
-      return NextResponse.json({ 
-        error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? errorDetails : undefined 
-      }, { status: 500 })
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })
     }
     console.error('Error creating room:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
-    const errorDetails = error instanceof Error ? error.stack : String(error)
-    console.error('Error details:', errorDetails)
-    return NextResponse.json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined 
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -154,24 +182,20 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const creatorId = searchParams.get('creatorId')
+    const supabase = createClient()
 
-    // Fetch rooms with creators (Prisma 6 supports standard queries)
-    const rooms = await prisma.room.findMany({
-      where: creatorId ? { creatorId } : undefined,
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            imageUrl: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    let query = supabase
+      .from('rooms')
+      .select('*, creator:users(id, name, email, image_url)')
+      .order('created_at', { ascending: false })
+
+    if (creatorId) {
+      query = query.eq('creator_id', creatorId)
+    }
+
+    const { data: rooms, error } = await query
+
+    if (error) throw error
 
     return NextResponse.json({ rooms })
   } catch (error) {

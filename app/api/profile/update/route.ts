@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getUserByAuthId } from '@/lib/utils/auth'
 import { z } from 'zod'
 
 const updateProfileSchema = z.object({
-  name: z.string().optional(),
-  imageUrl: z.string().url().optional().nullable(),
+  name: z.string().optional().nullable(),
+  imageUrl: z.string().optional().nullable(),
 })
 
 /**
@@ -15,12 +15,14 @@ const updateProfileSchema = z.object({
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await getUserByClerkId(clerkId)
+    const user = await getUserByAuthId(authUser.id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
@@ -28,27 +30,47 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const updates = updateProfileSchema.parse(body)
 
-    // Update user in database
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
+    // Handle old image cleanup if a new one is provided or removed
+    if (updates.imageUrl !== undefined && user.image_url) {
+      try {
+        const bucketName = 'avatars'
+        const oldUrl = user.image_url
+        
+        // Check if it's a supabase storage URL
+        if (oldUrl.includes(`${bucketName}/profiles/`)) {
+          const oldPath = oldUrl.split(`${bucketName}/`)[1]
+          if (oldPath) {
+            console.log('[ProfileUpdate] Cleaning up old sanctuary asset:', oldPath)
+            await supabase.storage.from(bucketName).remove([oldPath])
+          }
+        }
+      } catch (cleanupError) {
+        console.error('[ProfileUpdate] Failed to cleanup old image:', cleanupError)
+        // Don't fail the update just because cleanup failed
+      }
+    }
+
+    // Update user in database using admin client to bypass RLS policies
+    const supabaseAdmin = createAdminClient()
+    const { data: updatedUser, error } = await supabaseAdmin
+      .from('users')
+      .update({
         ...(updates.name !== undefined && { name: updates.name }),
-        ...(updates.imageUrl !== undefined && { imageUrl: updates.imageUrl }),
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        imageUrl: true,
-      },
-    })
+        ...(updates.imageUrl !== undefined && { image_url: updates.imageUrl }),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+      .select('id, email, name, image_url')
+      .single()
+
+    if (error) throw error
 
     return NextResponse.json({
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
         name: updatedUser.name,
-        imageUrl: updatedUser.imageUrl,
+        imageUrl: updatedUser.image_url,
       },
     })
   } catch (error) {

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getUserByAuthId } from '@/lib/utils/auth'
 
 /**
  * POST /api/invitations/accept
@@ -9,12 +8,14 @@ import { getUserByClerkId } from '@/lib/utils/auth'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await getUserByClerkId(clerkId)
+    const user = await getUserByAuthId(authUser.id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
@@ -40,23 +41,23 @@ export async function POST(request: NextRequest) {
       }
 
       // Get room
-      const room = await prisma.room.findUnique({
-        where: { id: roomId },
-      })
+      const { data: room } = await supabase
+        .from('rooms')
+        .select('*')
+        .eq('id', roomId)
+        .single()
 
       if (!room) {
         return NextResponse.json({ error: 'Room not found' }, { status: 404 })
       }
 
       // Check if user is already a member
-      const existingMember = await prisma.roomMember.findUnique({
-        where: {
-          roomId_userId: {
-            roomId: room.id,
-            userId: user.id,
-          },
-        },
-      })
+      const { data: existingMember } = await supabase
+        .from('room_participants')
+        .select('*')
+        .eq('room_id', room.id)
+        .eq('user_id', user.id)
+        .single()
 
       if (existingMember) {
         return NextResponse.json(
@@ -66,14 +67,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Add user as room member
-      await prisma.roomMember.create({
-        data: {
-          roomId: room.id,
-          userId: user.id,
-          role: 'member',
-          invitedBy: inviterId,
-        },
-      })
+      const { error: insertError } = await supabase
+        .from('room_participants')
+        .insert({
+          room_id: room.id,
+          user_id: user.id,
+          role: 'member'
+        })
+
+      if (insertError) throw insertError
 
       return NextResponse.json(
         {

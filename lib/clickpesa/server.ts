@@ -5,16 +5,14 @@
  * Documentation: https://docs.clickpesa.com
  */
 
-const CLICKPESA_CLIENT_ID = process.env.CLICKPESA_CLIENT_ID!
-const CLICKPESA_API_KEY = process.env.CLICKPESA_API_KEY!
 const CLICKPESA_BASE_URL = process.env.CLICKPESA_BASE_URL || 'https://api.clickpesa.com'
 
-if (!CLICKPESA_CLIENT_ID) {
-  throw new Error('Missing CLICKPESA_CLIENT_ID environment variable')
-}
-
-if (!CLICKPESA_API_KEY) {
-  throw new Error('Missing CLICKPESA_API_KEY environment variable')
+function getCredentials() {
+  const clientId = process.env.CLICKPESA_CLIENT_ID
+  const apiKey = process.env.CLICKPESA_API_KEY
+  if (!clientId) throw new Error('Missing CLICKPESA_CLIENT_ID environment variable')
+  if (!apiKey) throw new Error('Missing CLICKPESA_API_KEY environment variable')
+  return { clientId, apiKey }
 }
 
 /**
@@ -23,14 +21,15 @@ if (!CLICKPESA_API_KEY) {
  */
 async function generateJWT(): Promise<string> {
   try {
+    const { clientId, apiKey } = getCredentials()
     const response = await fetch(`${CLICKPESA_BASE_URL}/auth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        clientId: CLICKPESA_CLIENT_ID,
-        apiKey: CLICKPESA_API_KEY,
+        clientId,
+        apiKey,
       }),
     })
 

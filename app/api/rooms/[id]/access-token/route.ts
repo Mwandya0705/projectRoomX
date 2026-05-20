@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getUserByAuthId } from '@/lib/utils/auth'
 import { checkRoomAccess } from '@/lib/utils/access-control'
 import { generateLiveKitToken, getLiveKitUrl } from '@/lib/livekit/server'
 
@@ -15,12 +15,14 @@ export async function GET(
 ) {
   try {
     const { id } = params
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await getUserByClerkId(clerkId)
+    const user = await getUserByAuthId(authUser.id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }

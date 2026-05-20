@@ -1,7 +1,8 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getUserByAuthId } from '@/lib/utils/auth'
 import { createSubscription } from '@/lib/clickpesa/server'
 import { z } from 'zod'
 
@@ -15,12 +16,14 @@ const checkoutSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await getUserByClerkId(clerkId)
+    const user = await getUserByAuthId(authUser.id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
@@ -40,16 +43,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get room
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-    })
+    const { data: room } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .single()
 
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 })
     }
 
     // Check if user is the creator
-    if (room.creatorId === user.id) {
+    if (room.creator_id === user.id) {
       return NextResponse.json(
         { error: 'You cannot subscribe to your own room' },
         { status: 400 }
@@ -57,13 +62,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has an active subscription
-    const existingSubscription = await prisma.subscription.findFirst({
-      where: {
-        subscriberId: user.id,
-        roomId: roomId,
-        status: 'active',
-      },
-    })
+    const { data: existingSubscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('subscriber_id', user.id)
+      .eq('room_id', roomId)
+      .eq('status', 'active')
+      .single()
 
     if (existingSubscription) {
       return NextResponse.json(
@@ -72,7 +77,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!room.subscriptionPriceId) {
+    if (!room.subscription_price_id) {
       return NextResponse.json(
         { error: 'Room does not have a subscription price configured' },
         { status: 400 }
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse price from subscriptionPriceId (format: "amount:currency")
-    const [priceStr, currency] = room.subscriptionPriceId.split(':')
+    const [priceStr, currency] = room.subscription_price_id.split(':')
     const amount = parseFloat(priceStr)
     // Ensure currency is uppercase (Click Pesa may require uppercase)
     const paymentCurrency = (currency || 'TZS').toUpperCase()
@@ -111,7 +116,7 @@ export async function POST(request: NextRequest) {
     // Note: Click Pesa will append payment_id as a query parameter automatically
     const callbackUrl = `${appUrl}/api/webhooks/clickpesa`
     const successUrl = `${appUrl}/room/${roomId}`
-    const cancelUrl = `${appUrl}/subscribe/${room.creatorId}`
+    const cancelUrl = `${appUrl}/subscribe/${room.creator_id}`
 
     // Validate URLs
     try {

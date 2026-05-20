@@ -1,13 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { SignedIn, SignedOut, SignUpButton } from '@clerk/nextjs'
-import NavigationClient from '@/components/NavigationClient'
-import Cards from '@/components/Cards'
 import RollingCardsSection from '@/components/RollingCardsSections'
 import CampaignShowcaseSection from '@/components/CampaignShowcaseSection'
-import FooterDetails from '@/components/FooterDetails'
-import Hero from '@/components/Hero'
+import Blogging from '@/components/Blogging'
 import HeroFinal from '@/components/Herofinal'
 import CrossingWord from '@/components/CrossingWord'
 
@@ -15,7 +11,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#f5f6f2]">
        <CrossingWord />
-      <NavigationClient />
       <HeroFinal />
       {/* ── HERO: full-viewport, Pixis-style ── */}
       {/* <Hero /> */}
@@ -24,7 +19,7 @@ export default function Home() {
       {/* <Cards /> */}
       <RollingCardsSection />
       <CampaignShowcaseSection />
-      <FooterDetails />
+      <Blogging />
     </div>
   )
 }

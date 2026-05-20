@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getUserByAuthId } from '@/lib/utils/auth'
 import { generateInvitationLink, sendInvitationEmail } from '@/lib/email/server'
 import { z } from 'zod'
 
@@ -16,13 +15,15 @@ const inviteSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Get user from database
-    const user = await getUserByClerkId(clerkId)
+    const user = await getUserByAuthId(authUser.id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
@@ -32,16 +33,18 @@ export async function POST(request: NextRequest) {
     const { roomId, email } = inviteSchema.parse(body)
 
     // Get room and check if user is admin or creator
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-    })
+    const { data: room } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .single()
 
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 })
     }
 
-    const isAdmin = room.adminId === user.id
-    const isCreator = room.creatorId === user.id
+    const isAdmin = room.admin_id === user.id
+    const isCreator = room.creator_id === user.id
 
     if (!isAdmin && !isCreator) {
       return NextResponse.json(
@@ -51,12 +54,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check room capacity
-    if (!room.isPublic && room.capacity) {
-      const currentMembers = await prisma.roomMember.count({
-        where: { roomId: room.id },
-      })
+    if (!room.is_public && room.capacity) {
+      const { count: currentMembers } = await supabase
+        .from('room_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('room_id', room.id)
 
-      if (currentMembers >= room.capacity) {
+      if (currentMembers !== null && currentMembers >= room.capacity) {
         return NextResponse.json(
           { error: `Room is full. Maximum capacity is ${room.capacity} members.` },
           { status: 400 }
@@ -65,20 +69,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user to invite
-    const inviteUser = await prisma.user.findUnique({
-      where: { email },
-    })
+    const { data: inviteUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle()
 
     // Check if user is already a member (if they exist)
     if (inviteUser) {
-      const existingMember = await prisma.roomMember.findUnique({
-        where: {
-          roomId_userId: {
-            roomId: room.id,
-            userId: inviteUser.id,
-          },
-        },
-      })
+      const { data: existingMember } = await supabase
+        .from('room_members')
+        .select('*')
+        .eq('room_id', room.id)
+        .eq('user_id', inviteUser.id)
+        .maybeSingle()
 
       if (existingMember) {
         return NextResponse.json(
@@ -88,34 +92,26 @@ export async function POST(request: NextRequest) {
       }
 
       // User exists - add them as member immediately
-      const roomMember = await prisma.roomMember.create({
-        data: {
-          roomId: room.id,
-          userId: inviteUser.id,
+      const { data: roomMember, error: insertError } = await supabase
+        .from('room_members')
+        .insert({
+          room_id: room.id,
+          user_id: inviteUser.id,
           role: 'member',
-          invitedBy: user.id,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              imageUrl: true,
-            },
-          },
-        },
-      })
+          invited_by: user.id
+        })
+        .select('*, user:users(*)')
+        .maybeSingle()
+        
+      if (insertError) {
+        console.error('[InviteAPI] Insert error:', insertError)
+        throw insertError
+      }
 
       return NextResponse.json(
         {
           message: 'Member invited successfully',
-          member: {
-            id: roomMember.id,
-            userId: roomMember.userId,
-            role: roomMember.role,
-            user: roomMember.user,
-          },
+          member: roomMember,
         },
         { status: 201 }
       )

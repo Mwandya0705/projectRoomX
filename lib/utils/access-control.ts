@@ -1,135 +1,75 @@
-import { prisma } from '@/lib/db/prisma'
+import { createClient } from '@/lib/supabase/server'
 import type { Room, Subscription } from '@/lib/types/database'
 
 /**
  * Check if a user has access to a room
- * - Creator always has access
- * - Admin always has access
- * - Room members have access
- * - Active subscribers have access (for public rooms)
- * - Public rooms: anyone authenticated can access
  */
 export async function checkRoomAccess(
   roomId: string,
   userId: string
 ): Promise<{ hasAccess: boolean; isCreator: boolean; isAdmin: boolean; subscription?: Subscription | null }> {
   try {
-    console.log('[checkRoomAccess] Checking access for room:', roomId, 'user:', userId)
+    const supabase = createClient()
     
     // Get room
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-    })
+    const { data: room, error: roomError } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .single()
 
-    if (!room) {
-      console.log('[checkRoomAccess] Room not found')
+    if (roomError || !room) {
       return { hasAccess: false, isCreator: false, isAdmin: false }
     }
 
-    // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    })
+    const isCreator = room.creator_id === userId
+    const isAdmin = room.admin_id === userId
 
-    if (!user) {
-      console.log('[checkRoomAccess] User not found')
-      return { hasAccess: false, isCreator: false, isAdmin: false }
-    }
-
-    const isCreator = room.creatorId === userId
-    const isAdmin = room.adminId === userId
-
-    // Creator always has access
-    if (isCreator) {
-      console.log('[checkRoomAccess] User is creator, access granted')
-      return { hasAccess: true, isCreator: true, isAdmin: false }
-    }
-
-    // Admin always has access
-    if (isAdmin) {
-      console.log('[checkRoomAccess] User is admin, access granted')
-      return { hasAccess: true, isCreator: false, isAdmin: true }
+    // Creator or Admin always has access
+    if (isCreator || isAdmin) {
+      return { hasAccess: true, isCreator, isAdmin }
     }
 
     // Check if user is a room member
-    const roomMember = await prisma.roomMember.findUnique({
-      where: {
-        roomId_userId: {
-          roomId: room.id,
-          userId: user.id,
-        },
-      },
-    })
+    const { data: roomMember } = await supabase
+      .from('room_members')
+      .select('*')
+      .eq('room_id', roomId)
+      .eq('user_id', userId)
+      .single()
 
     if (roomMember) {
-      console.log('[checkRoomAccess] User is a room member, access granted')
       return { hasAccess: true, isCreator: false, isAdmin: roomMember.role === 'admin' }
     }
 
     // Public rooms: authenticated users can access
-    if (room.isPublic) {
-      console.log('[checkRoomAccess] Room is public, access granted')
+    if (room.is_public) {
       return { hasAccess: true, isCreator: false, isAdmin: false }
     }
 
     // For private rooms, check for active subscription
-    const subscription = await prisma.subscription.findFirst({
-      where: {
-        subscriberId: userId,
-        roomId: roomId,
-        status: 'active',
-      },
-    })
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('subscriber_id', userId)
+      .eq('room_id', roomId)
+      .eq('status', 'active')
+      .single()
 
     if (!subscription) {
       return { hasAccess: false, isCreator: false, isAdmin: false, subscription: null }
     }
 
     // Check if subscription period is still valid
-    if (subscription.currentPeriodEnd) {
-      const periodEnd = new Date(subscription.currentPeriodEnd)
+    if (subscription.current_period_end) {
+      const periodEnd = new Date(subscription.current_period_end)
       const now = new Date()
       if (periodEnd < now) {
-        return {
-          hasAccess: false,
-          isCreator: false,
-          isAdmin: false,
-          subscription: {
-            id: subscription.id,
-            subscriber_id: subscription.subscriberId,
-            room_id: subscription.roomId,
-            stripe_subscription_id: subscription.stripeSubscriptionId,
-            stripe_customer_id: subscription.stripeCustomerId,
-            status: subscription.status as any,
-            current_period_start: subscription.currentPeriodStart?.toISOString() || null,
-            current_period_end: subscription.currentPeriodEnd?.toISOString() || null,
-            cancel_at_period_end: subscription.cancelAtPeriodEnd,
-            created_at: subscription.createdAt.toISOString(),
-            updated_at: subscription.updatedAt.toISOString(),
-          },
-        }
+        return { hasAccess: false, isCreator: false, isAdmin: false, subscription: subscription as any }
       }
     }
 
-    // Subscription is valid - grant access (as subscriber/guest)
-    return {
-      hasAccess: true,
-      isCreator: false,
-      isAdmin: false,
-      subscription: {
-        id: subscription.id,
-        subscriber_id: subscription.subscriberId,
-        room_id: subscription.roomId,
-        stripe_subscription_id: subscription.stripeSubscriptionId,
-        stripe_customer_id: subscription.stripeCustomerId,
-        status: subscription.status as any,
-        current_period_start: subscription.currentPeriodStart?.toISOString() || null,
-        current_period_end: subscription.currentPeriodEnd?.toISOString() || null,
-        cancel_at_period_end: subscription.cancelAtPeriodEnd,
-        created_at: subscription.createdAt.toISOString(),
-        updated_at: subscription.updatedAt.toISOString(),
-      },
-    }
+    return { hasAccess: true, isCreator: false, isAdmin: false, subscription: subscription as any }
   } catch (error) {
     console.error('Error checking room access:', error)
     return { hasAccess: false, isCreator: false, isAdmin: false }
@@ -137,33 +77,41 @@ export async function checkRoomAccess(
 }
 
 /**
- * Get user's room (if they are a creator)
+ * Get user's primary room
  */
 export async function getUserRoom(userId: string): Promise<Room | null> {
+  const rooms = await getUserRooms(userId)
+  return rooms.length > 0 ? rooms[0] : null
+}
+
+/**
+ * Get user's rooms
+ */
+export async function getUserRooms(userId: string): Promise<Room[]> {
   try {
-    const room = await prisma.room.findUnique({
-      where: { creatorId: userId },
-    })
+    const supabase = createClient()
+    const { data: rooms, error } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('creator_id', userId)
+      .order('created_at', { ascending: false })
 
-    if (!room) {
-      return null
-    }
+    if (error) throw error
 
-    // Convert Prisma room to Room type
-    return {
+    return (rooms || []).map(room => ({
       id: room.id,
-      creator_id: room.creatorId,
+      creator_id: room.creator_id,
       title: room.title,
       description: room.description,
-      is_live: room.isLive,
-      subscription_price_id: room.subscriptionPriceId,
-      subscription_product_id: room.subscriptionProductId,
-      created_at: room.createdAt.toISOString(),
-      updated_at: room.updatedAt.toISOString(),
-    }
+      is_live: room.is_live,
+      subscription_price_id: room.subscription_price_id,
+      subscription_product_id: room.subscription_product_id,
+      created_at: room.created_at,
+      updated_at: room.updated_at,
+    }))
   } catch (error) {
-    console.error('Error fetching user room:', error)
-    return null
+    console.error('Error fetching user rooms:', error)
+    return []
   }
 }
 
@@ -172,28 +120,27 @@ export async function getUserRoom(userId: string): Promise<Room | null> {
  */
 export async function getUserSubscriptions(userId: string) {
   try {
-    const subscriptions = await prisma.subscription.findMany({
-      where: {
-        subscriberId: userId,
-        status: 'active',
-      },
-      include: {
-        room: true,
-      },
-    })
+    const supabase = createClient()
+    const { data: subscriptions, error } = await supabase
+      .from('subscriptions')
+      .select('*, room:rooms(*)')
+      .eq('subscriber_id', userId)
+      .eq('status', 'active')
 
-    return subscriptions.map((sub) => ({
+    if (error) throw error
+
+    return (subscriptions || []).map((sub: any) => ({
       ...sub,
       rooms: {
         id: sub.room.id,
-        creator_id: sub.room.creatorId,
+        creator_id: sub.room.creator_id,
         title: sub.room.title,
         description: sub.room.description,
-        is_live: sub.room.isLive,
-        subscription_price_id: sub.room.subscriptionPriceId,
-        subscription_product_id: sub.room.subscriptionProductId,
-        created_at: sub.room.createdAt.toISOString(),
-        updated_at: sub.room.updatedAt.toISOString(),
+        is_live: sub.room.is_live,
+        subscription_price_id: sub.room.subscription_price_id,
+        subscription_product_id: sub.room.subscription_product_id,
+        created_at: sub.room.created_at,
+        updated_at: sub.room.updated_at,
       },
     }))
   } catch (error) {

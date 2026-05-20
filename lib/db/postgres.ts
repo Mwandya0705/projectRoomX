@@ -1,4 +1,4 @@
-import { Pool, QueryResult } from 'pg'
+import { Pool, QueryResult, QueryResultRow } from 'pg'
 
 // Get PostgreSQL connection string from environment
 const connectionString = process.env.DATABASE_URL || 
@@ -13,7 +13,7 @@ const pool = new Pool({
 })
 
 // Helper to execute queries
-export async function query<T = any>(
+export async function query<T extends QueryResultRow = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {
@@ -108,7 +108,7 @@ export class PostgresQueryBuilder {
     return this
   }
 
-  async execute<T = any>(): Promise<{ data: T[] | T | null; error: any }> {
+  async execute<T extends QueryResultRow = any>(): Promise<{ data: T[] | T | null; error: any }> {
     try {
       const { mainFields, joins } = parseSelect(this.selectString, this.table)
       const params: any[] = []
@@ -227,7 +227,7 @@ export const db = {
 }
 
 // Insert helper
-export async function insert<T = any>(
+export async function insert<T extends QueryResultRow = any>(
   table: string,
   data: Record<string, any>
 ): Promise<{ data: T | null; error: any }> {
@@ -246,7 +246,7 @@ export async function insert<T = any>(
 }
 
 // Update helper
-export async function update<T = any>(
+export async function update<T extends QueryResultRow = any>(
   table: string,
   data: Record<string, any>,
   where: Record<string, any>
@@ -279,7 +279,7 @@ export async function update<T = any>(
 }
 
 // Delete helper
-export async function deleteRows<T = any>(
+export async function deleteRows<T extends QueryResultRow = any>(
   table: string,
   where: Record<string, any>
 ): Promise<{ data: T[] | null; error: any }> {

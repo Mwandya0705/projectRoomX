@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { getUserByClerkId } from '@/lib/utils/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getUserByAuthId } from '@/lib/utils/auth'
 import { checkRoomAccess } from '@/lib/utils/access-control'
 import dynamic from 'next/dynamic'
 
@@ -9,8 +8,11 @@ import dynamic from 'next/dynamic'
 const LiveRoomWrapper = dynamic(() => import('@/components/LiveRoomWrapper'), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen flex items-center justify-center text-white bg-gray-900">
-      <p>Loading room...</p>
+    <div className="min-h-screen flex items-center justify-center text-white bg-[#0d2a21]">
+       <div className="flex flex-col items-center gap-6">
+          <div className="w-16 h-16 border-4 border-[#10b981]/20 border-t-[#10b981] rounded-full animate-spin" />
+          <p className="text-sm font-black text-white/40 uppercase tracking-[0.2em]">Synchronizing Studio...</p>
+       </div>
     </div>
   ),
 })
@@ -20,247 +22,113 @@ interface PageProps {
   params: {
     id: string
   }
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+  searchParams: { [key: string]: string | string[] | undefined }
 }
 
 export default async function RoomPage({ params, searchParams }: PageProps) {
-  const resolvedSearchParams = await searchParams
-  const paymentId = resolvedSearchParams?.payment_id as string | undefined
+  const paymentId = searchParams?.payment_id as string | undefined
   try {
     const { id } = params
-    console.log('[RoomPage] Loading room:', id)
     
-    if (!id) {
-      console.error('[RoomPage] No room ID provided')
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <p className="text-xl text-gray-900">Invalid room ID</p>
-          </div>
-        </div>
-      )
-    }
+    if (!id) redirect('/dashboard')
 
-    console.log('[RoomPage] Authenticating user...')
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
-      console.log('[RoomPage] No Clerk ID, redirecting to sign-in')
-      redirect('/sign-in')
-    }
+    const supabase = createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authUser) redirect('/sign-in')
 
-    console.log('[RoomPage] Getting user from database...')
-    const user = await getUserByClerkId(clerkId)
-    if (!user) {
-      console.log('[RoomPage] User not found, redirecting to sign-in')
-      redirect('/sign-in')
-    }
-    console.log('[RoomPage] User found:', user.id)
+    const user = await getUserByAuthId(authUser.id)
+    if (!user) redirect('/sign-in')
 
-    // If payment_id is present, verify payment and create subscription
+    // 🛡️ PAYMENT VERIFICATION
     if (paymentId && typeof paymentId === 'string') {
-      console.log('[RoomPage] Payment ID detected, verifying payment...', paymentId)
       try {
-        // Import verifyPayment directly to avoid server-to-server fetch
         const { verifyPayment } = await import('@/lib/clickpesa/server')
         const payment = await verifyPayment(paymentId)
         
-        // Check if payment was successful
         if ((payment.status === 'completed' || payment.status === 'success') && payment.metadata) {
-          const metadataUserId = payment.metadata.userId
-          const metadataRoomId = payment.metadata.roomId
-          
-          // Verify the payment belongs to this user and room
-          if (metadataUserId === user.id && metadataRoomId === id) {
+          if (payment.metadata.userId === user.id && payment.metadata.roomId === id) {
             // Check if subscription already exists
-            const existingSubscription = await prisma.subscription.findFirst({
-              where: {
-                subscriberId: user.id,
-                roomId: id,
-              },
-            })
+            const { data: existingSubscription } = await supabase
+              .from('subscriptions')
+              .select('id')
+              .eq('subscriber_id', user.id)
+              .eq('room_id', id)
+              .single()
             
             if (!existingSubscription) {
-              // Create subscription if it doesn't exist
-              await prisma.subscription.create({
-                data: {
-                  subscriberId: user.id,
-                  roomId: id,
-                  stripeSubscriptionId: paymentId,
-                  stripeCustomerId: user.id,
-                  status: 'active',
-                  currentPeriodStart: new Date(),
-                  currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-                  cancelAtPeriodEnd: false,
-                },
+              await supabase.from('subscriptions').insert({
+                subscriber_id: user.id,
+                room_id: id,
+                status: 'active',
+                current_period_start: new Date().toISOString(),
+                current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               })
-              console.log('[RoomPage] Subscription created from payment verification')
-            } else {
-              // Update existing subscription
-              await prisma.subscription.update({
-                where: { id: existingSubscription.id },
-                data: {
-                  status: 'active',
-                  stripeSubscriptionId: paymentId,
-                  currentPeriodStart: new Date(),
-                  currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                  cancelAtPeriodEnd: false,
-                },
-              })
-              console.log('[RoomPage] Subscription updated from payment verification')
             }
           }
         }
       } catch (error) {
         console.error('[RoomPage] Error verifying payment:', error)
-        // Continue anyway - webhook might have handled it
       }
     }
 
-    // Get room (adapter doesn't support select, fetch all fields)
-    console.log('[RoomPage] Fetching room from database...')
-    const roomData = await prisma.room.findUnique({
-      where: { id },
-    })
+    // 🧬 FETCH ROOM ARCHITECTURE
+    const { data: roomData, error: roomError } = await supabase
+      .from('rooms')
+      .select(`*, creator:users!creator_id(*)`)
+      .eq('id', id)
+      .maybeSingle()
 
-    if (!roomData) {
-      console.error('[RoomPage] Room not found:', id)
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <p className="text-xl text-gray-900 mb-2">Room not found</p>
-            <p className="text-gray-600">Room ID: {id}</p>
-          </div>
-        </div>
-      )
-    }
-    console.log('[RoomPage] Room found:', roomData.title)
+    if (roomError || !roomData) redirect('/dashboard')
 
-    // Fetch creator separately
-    console.log('[RoomPage] Fetching creator...')
-    const creator = await prisma.user.findUnique({
-      where: { id: roomData.creatorId },
-    })
-
-    if (!creator) {
-      console.error('[RoomPage] Creator not found:', roomData.creatorId)
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <p className="text-xl text-gray-900">Creator not found</p>
-          </div>
-        </div>
-      )
-    }
-    console.log('[RoomPage] Creator found:', creator.email)
-
-    // Convert to expected format
+    const rd = roomData as any
     const room: Room & { users: User } = {
-      id: roomData.id,
-      creator_id: roomData.creatorId,
-      title: roomData.title,
-      description: roomData.description,
-      is_live: roomData.isLive,
-      subscription_price_id: roomData.subscriptionPriceId,
-      subscription_product_id: roomData.subscriptionProductId,
-      created_at: roomData.createdAt.toISOString(),
-      updated_at: roomData.updatedAt.toISOString(),
+      id: rd.id,
+      creator_id: rd.creator_id,
+      title: rd.title,
+      description: rd.description,
+      is_live: rd.is_live,
+      subscription_price_id: rd.subscription_price_id,
+      subscription_product_id: rd.subscription_product_id || null,
+      created_at: rd.created_at,
+      updated_at: rd.updated_at,
       users: {
-        id: creator.id,
-        clerk_id: '', // Not needed here
-        email: creator.email,
-        name: creator.name,
-        image_url: creator.imageUrl,
-        created_at: '',
-        updated_at: '',
+        id: rd.creator?.id || rd.creator_id,
+        clerk_id: rd.creator?.clerk_id || '',
+        email: rd.creator?.email || '',
+        name: rd.creator?.name || 'Unknown Creator',
+        image_url: rd.creator?.image_url || null,
+        created_at: rd.creator?.created_at || new Date().toISOString(),
+        updated_at: rd.creator?.updated_at || new Date().toISOString(),
       },
     }
 
-    // Check access
-    console.log('[RoomPage] Checking room access...')
+    // 🛡️ THE SANCTUARY GUARD
     const { hasAccess, isCreator, isAdmin } = await checkRoomAccess(id, user.id)
-    console.log('[RoomPage] Access check result:', { hasAccess, isCreator, isAdmin })
 
     if (!hasAccess) {
-      console.log('[RoomPage] Access denied')
-      // Check if room is public - if not, redirect to subscribe
+      const is_public = roomData.is_public ?? false
+      const priceId = roomData.subscription_price_id
+      const hasPrice = priceId && priceId.length > 0
 
-      const isPublic = roomData.isPublic ?? false
-      if (!isPublic) {
-        redirect(`/subscribe/${room.creator_id}`)
+      // If the room is private OR has a set price, redirect to the Aesthetic Subscription Gate
+      if (!is_public || hasPrice) {
+        redirect(`/subscribe/${id}`)
       } else {
-        return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="text-center max-w-md p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-              <p className="text-gray-600 mb-4">
-                You don't have permission to access this room.
-              </p>
-              <a
-                href="/dashboard"
-                className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Go to Dashboard
-              </a>
-            </div>
-          </div>
-        )
+        // Fallback for generic access issues
+        redirect('/dashboard')
       }
     }
 
-    console.log('[RoomPage] Access granted, rendering LiveRoom component')
-    try {
-      return (
-        <div className="min-h-screen bg-gray-900">
-          <LiveRoomWrapper roomId={id} room={room} user={user} isCreator={isCreator || isAdmin} />
-        </div>
-      )
-    } catch (renderError) {
-      console.error('[RoomPage] Error rendering LiveRoom:', renderError)
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center max-w-md p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Rendering Room</h2>
-            <p className="text-gray-600 mb-4">
-              {renderError instanceof Error ? renderError.message : 'Failed to render room component'}
-            </p>
-            <a
-              href="/dashboard"
-              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Go to Dashboard
-            </a>
-          </div>
-        </div>
-      )
-    }
-  } catch (error) {
-    console.error('[RoomPage] Error loading room page:', error)
-    console.error('[RoomPage] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-    console.error('[RoomPage] Error details:', {
-      message: error instanceof Error ? error.message : String(error),
-      name: error instanceof Error ? error.name : 'Unknown',
-    })
-    
-    // Return error UI instead of throwing (error.tsx will catch unhandled errors)
+    // 🎬 ACCESS GRANTED: Enter Studio
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Room</h2>
-          <p className="text-gray-600 mb-4">
-            {error instanceof Error ? error.message : 'An unexpected error occurred'}
-          </p>
-          <p className="text-sm text-gray-500 mb-6">
-            Check the server console for more details.
-          </p>
-          <a
-            href="/dashboard"
-            className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Go to Dashboard
-          </a>
-        </div>
+      <div className="min-h-screen bg-black">
+        <LiveRoomWrapper roomId={id} room={room} user={user} isCreator={isCreator || isAdmin} />
       </div>
     )
+
+  } catch (error) {
+    console.error('[RoomPage] Critical Error:', error)
+    redirect('/dashboard')
   }
 }
-
