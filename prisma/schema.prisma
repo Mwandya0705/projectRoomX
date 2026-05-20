@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  clerkId   String   @unique @map("clerk_id") @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  name      String?  @db.VarChar(255)
+  imageUrl  String?  @map("image_url") @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  createdRooms      Room[]              @relation("RoomCreator")
+  adminRooms        Room[]              @relation("RoomAdmin")
+  subscriptions    Subscription[]
+  roomParticipants RoomParticipant[]
+  roomMembers       RoomMember[]
+  invitedMembers    RoomMember[]         @relation("RoomMemberInviter")
+
+  @@index([clerkId], map: "idx_users_clerk_id")
+  @@index([email], map: "idx_users_email")
+  @@map("users")
+}
+
+model Room {
+  id                    String   @id @default(uuid()) @db.Uuid
+  creatorId             String   @unique @map("creator_id") @db.Uuid
+  adminId               String?  @map("admin_id") @db.Uuid
+  title                 String   @db.VarChar(255)
+  description           String?  @db.Text
+  isLive                Boolean  @default(false) @map("is_live")
+  isPublic              Boolean  @default(false) @map("is_public")
+  capacity              Int?     @db.SmallInt // 2, 4, 6, 8, or null for public
+  subscriptionPriceId   String?  @map("subscription_price_id") @db.VarChar(255)
+  subscriptionProductId String?  @map("subscription_product_id") @db.VarChar(255)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  creator       User              @relation("RoomCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  admin         User?             @relation("RoomAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  subscriptions Subscription[]
+  participants  RoomParticipant[]
+  members       RoomMember[]
+
+  @@index([creatorId], map: "idx_rooms_creator_id")
+  @@index([adminId], map: "idx_rooms_admin_id")
+  @@index([subscriptionProductId], map: "idx_rooms_subscription_product_id")
+  @@map("rooms")
+}
+
+model Subscription {
+  id                  String    @id @default(uuid()) @db.Uuid
+  subscriberId        String    @map("subscriber_id") @db.Uuid
+  roomId              String    @map("room_id") @db.Uuid
+  stripeSubscriptionId String   @unique @map("stripe_subscription_id") @db.VarChar(255)
+  stripeCustomerId    String    @map("stripe_customer_id") @db.VarChar(255)
+  status              String    @db.VarChar(50)
+  currentPeriodStart  DateTime? @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd    DateTime? @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd   Boolean   @default(false) @map("cancel_at_period_end")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  subscriber User @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  room       Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([subscriberId], map: "idx_subscriptions_subscriber_id")
+  @@index([roomId], map: "idx_subscriptions_room_id")
+  @@index([stripeSubscriptionId], map: "idx_subscriptions_stripe_subscription_id")
+  @@index([status], map: "idx_subscriptions_status")
+  @@index([subscriberId, roomId], map: "idx_subscriptions_active")
+  @@map("subscriptions")
+}
+
+model RoomParticipant {
+  id      String    @id @default(uuid()) @db.Uuid
+  roomId  String    @map("room_id") @db.Uuid
+  userId  String    @map("user_id") @db.Uuid
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt  DateTime? @map("left_at") @db.Timestamptz(6)
+  role    String    @db.VarChar(50)
+
+  // Relations
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId], map: "idx_room_participants_room_id")
+  @@index([userId], map: "idx_room_participants_user_id")
+  @@index([roomId, userId], map: "idx_room_participants_active")
+  @@map("room_participants")
+}
+
+model RoomMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  roomId    String   @map("room_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member") @db.VarChar(50) // "admin", "member"
+  invitedBy  String?  @map("invited_by") @db.Uuid
+  joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  room     Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inviter  User? @relation("RoomMemberInviter", fields: [invitedBy], references: [id], onDelete: SetNull)
+
+  @@unique([roomId, userId], map: "idx_room_members_unique")
+  @@index([roomId], map: "idx_room_members_room_id")
+  @@index([userId], map: "idx_room_members_user_id")
+  @@map("room_members")
+}
