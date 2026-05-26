@@ -34,6 +34,9 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingMessage, setLoadingMessage] = useState('Initiating secure transaction...')
   
+  // Payment Method state
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile'>('card')
+  
   // Card states
   const [cardNumber, setCardNumber] = useState('')
   const [cardholderName, setCardholderName] = useState('')
@@ -41,6 +44,11 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
   const [cvv, setCvv] = useState('')
   const [isFlipped, setIsFlipped] = useState(false)
   const [cardType, setCardType] = useState<'visa' | 'mastercard' | 'generic'>('generic')
+
+  // Mobile states
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [provider, setProvider] = useState('vodacom')
+
 
   // Auto-detect Card Type
   useEffect(() => {
@@ -105,45 +113,68 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!cardholderName.trim()) {
-      setErrorMessage('Please enter cardholder name')
-      return
-    }
-    if (cardNumber.replace(/\s+/g, '').length < 16) {
-      setErrorMessage('Please enter a valid 16-digit card number')
-      return
-    }
-    if (expiryDate.length < 5) {
-      setErrorMessage('Please enter a valid expiry date (MM/YY)')
-      return
-    }
-    if (cvv.length < 3) {
-      setErrorMessage('Please enter a valid CVV code')
-      return
+
+    if (paymentMethod === 'card') {
+      if (!cardholderName.trim()) {
+        setErrorMessage('Please enter cardholder name')
+        return
+      }
+      if (cardNumber.replace(/\s+/g, '').length < 16) {
+        setErrorMessage('Please enter a valid 16-digit card number')
+        return
+      }
+      if (expiryDate.length < 5) {
+        setErrorMessage('Please enter a valid expiry date (MM/YY)')
+        return
+      }
+      if (cvv.length < 3) {
+        setErrorMessage('Please enter a valid CVV code')
+        return
+      }
+    } else {
+      const cleanPhone = phoneNumber.replace(/\D/g, '')
+      if (cleanPhone.length < 9) {
+        setErrorMessage('Please enter a valid mobile number (e.g., 075XXXXXXX)')
+        return
+      }
     }
 
     setErrorMessage('')
     setLoading(true)
 
+    if (paymentMethod === 'mobile') {
+      setLoadingMessage('Sending USSD Push to your phone...')
+    } else {
+      setLoadingMessage('Initiating secure transaction...')
+    }
+
     try {
+      const payload: Record<string, any> = {
+        roomId: room.id,
+      }
+
+      if (paymentMethod === 'card') {
+        payload.cardholderName = cardholderName
+        payload.cardNumber = cardNumber.replace(/\s+/g, '')
+        payload.expiryDate = expiryDate
+        payload.cvv = cvv
+      } else {
+        payload.phoneNumber = phoneNumber
+        payload.provider = provider
+      }
+
       const response = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          roomId: room.id,
-          cardholderName,
-          cardNumber: cardNumber.replace(/\s+/g, ''),
-          expiryDate,
-          cvv
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Direct authorization failed')
+        throw new Error(data.error || 'Payment authorization failed')
       }
 
       // Dynamic unlock success state
@@ -161,6 +192,7 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
       setLoading(false)
     }
   }
+
 
   return (
     <div className="min-h-screen bg-[#f5f6f2] font-sans overflow-x-hidden">
@@ -241,77 +273,133 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
                 </div>
               )}
 
-              {/* STEP 2: Interactive Payment Card Terminal */}
+              {/* STEP 2: Interactive Payment Card / Mobile money Terminal */}
               {step === 'payment' && (
-                <div className="space-y-8 flex-1 flex flex-col justify-between">
+                <div className="space-y-6 flex-1 flex flex-col justify-between">
                   <div className="space-y-4">
                     <button 
                       onClick={() => { setStep('summary'); setErrorMessage(''); }}
-                      className="inline-flex items-center gap-2 text-white/40 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors mb-2"
+                      className="inline-flex items-center gap-2 text-white/40 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors mb-1"
                       disabled={loading}
                     >
                       <ArrowLeft className="w-4 h-4" />
                       Back to Summary
                     </button>
+
+                    {/* Method Selector Toggle */}
+                    <div className="flex bg-white/5 p-1 rounded-full border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => { setPaymentMethod('card'); setErrorMessage(''); }}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
+                          paymentMethod === 'card'
+                            ? 'bg-[#10b981] text-[#0d2a21] shadow-lg'
+                            : 'text-white/60 hover:text-white'
+                        }`}
+                        disabled={loading}
+                      >
+                        Credit Card
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setPaymentMethod('mobile'); setErrorMessage(''); }}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
+                          paymentMethod === 'mobile'
+                            ? 'bg-[#10b981] text-[#0d2a21] shadow-lg'
+                            : 'text-white/60 hover:text-white'
+                        }`}
+                        disabled={loading}
+                      >
+                        Mobile Money
+                      </button>
+                    </div>
                     
-                    {/* Visual Credit Card Container */}
-                    <div className="w-full aspect-[1.586] max-w-sm mx-auto rounded-2xl relative preserve-3d transition-transform duration-700 ease-out"
-                         style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-                      
-                      {/* FRONT OF CARD */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#10b981] to-[#047857] rounded-2xl p-4 sm:p-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white">
-                        <div className="flex justify-between items-start">
-                          <div className="w-10 h-7 bg-yellow-500/20 border border-yellow-500/30 rounded-md flex items-center justify-center">
-                            {/* Card Chip graphic */}
-                            <div className="w-6 h-4 border border-yellow-500/40 rounded-sm grid grid-cols-2" />
-                          </div>
-                          <span className="text-sm font-black uppercase tracking-wider">
-                            {cardType === 'visa' ? 'VISA' : cardType === 'mastercard' ? 'MASTERCARD' : 'SECURE ACCESS'}
-                          </span>
-                        </div>
+                    {paymentMethod === 'card' ? (
+                      /* Visual Credit Card Container */
+                      <div className="w-full aspect-[1.586] max-w-sm mx-auto rounded-2xl relative preserve-3d transition-transform duration-700 ease-out"
+                           style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
                         
-                        <div className="space-y-3">
-                          {/* Card Number display */}
-                          <div className="text-base xs:text-lg sm:text-xl font-bold font-mono tracking-widest whitespace-nowrap">
-                            {cardNumber || '•••• •••• •••• ••••'}
+                        {/* FRONT OF CARD */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#10b981] to-[#047857] rounded-2xl p-4 sm:p-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white">
+                          <div className="flex justify-between items-start">
+                            <div className="w-10 h-7 bg-yellow-500/20 border border-yellow-500/30 rounded-md flex items-center justify-center">
+                              <div className="w-6 h-4 border border-yellow-500/40 rounded-sm grid grid-cols-2" />
+                            </div>
+                            <span className="text-sm font-black uppercase tracking-wider">
+                              {cardType === 'visa' ? 'VISA' : cardType === 'mastercard' ? 'MASTERCARD' : 'SECURE ACCESS'}
+                            </span>
                           </div>
                           
-                          <div className="flex justify-between items-end">
-                            <div className="space-y-1">
-                              <span className="text-[7px] text-white/50 uppercase tracking-widest block">Cardholder</span>
-                              <span className="text-[9px] xs:text-[11px] sm:text-xs font-bold uppercase tracking-wider block max-w-[110px] xs:max-w-[180px] truncate">
-                                {cardholderName || 'YOUR FULL NAME'}
-                              </span>
+                          <div className="space-y-3">
+                            <div className="text-base xs:text-lg sm:text-xl font-bold font-mono tracking-widest whitespace-nowrap">
+                              {cardNumber || '•••• •••• •••• ••••'}
                             </div>
-                            <div className="space-y-1 text-right">
-                              <span className="text-[7px] text-white/50 uppercase tracking-widest block">Expires</span>
-                              <span className="text-[10px] sm:text-xs font-bold font-mono block">
-                                {expiryDate || 'MM/YY'}
-                              </span>
+                            
+                            <div className="flex justify-between items-end">
+                              <div className="space-y-1">
+                                <span className="text-[7px] text-white/50 uppercase tracking-widest block">Cardholder</span>
+                                <span className="text-[9px] xs:text-[11px] sm:text-xs font-bold uppercase tracking-wider block max-w-[110px] xs:max-w-[180px] truncate">
+                                  {cardholderName || 'YOUR FULL NAME'}
+                                </span>
+                              </div>
+                              <div className="space-y-1 text-right">
+                                <span className="text-[7px] text-white/50 uppercase tracking-widest block">Expires</span>
+                                <span className="text-[10px] sm:text-xs font-bold font-mono block">
+                                  {expiryDate || 'MM/YY'}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* BACK OF CARD */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#064e3b] to-[#022c22] rounded-2xl py-4 sm:py-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white"
-                           style={{ transform: 'rotateY(180deg)' }}>
-                        <div className="w-full h-6 sm:h-8 bg-black/80 mt-1" />
-                        <div className="px-4 sm:px-6 space-y-2 sm:space-y-4">
-                          <div className="flex justify-between items-center gap-2 sm:gap-4">
-                            <div className="flex-1 h-6 sm:h-8 bg-white/20 rounded flex items-center justify-end px-2 sm:px-3 font-mono text-[9px] sm:text-xs text-white/50 tracking-widest italic line-through">
-                              Sanctuary Sync Secure
+                        {/* BACK OF CARD */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#064e3b] to-[#022c22] rounded-2xl py-4 sm:py-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white"
+                             style={{ transform: 'rotateY(180deg)' }}>
+                          <div className="w-full h-6 sm:h-8 bg-black/80 mt-1" />
+                          <div className="px-4 sm:px-6 space-y-2 sm:space-y-4">
+                            <div className="flex justify-between items-center gap-2 sm:gap-4">
+                              <div className="flex-1 h-6 sm:h-8 bg-white/20 rounded flex items-center justify-end px-2 sm:px-3 font-mono text-[9px] sm:text-xs text-white/50 tracking-widest italic line-through">
+                                Sanctuary Sync Secure
+                              </div>
+                              <div className="w-10 sm:w-12 h-6 sm:h-8 bg-white text-black font-bold font-mono text-[10px] sm:text-xs flex items-center justify-center rounded">
+                                {cvv || 'CVV'}
+                              </div>
                             </div>
-                            <div className="w-10 sm:w-12 h-6 sm:h-8 bg-white text-black font-bold font-mono text-[10px] sm:text-xs flex items-center justify-center rounded">
-                              {cvv || 'CVV'}
-                            </div>
+                            <p className="text-[5px] sm:text-[6px] text-white/30 leading-normal uppercase tracking-widest">
+                              This custom digital access token is securely authorized by the RoomX transaction platform using the configured client PAYMENT_API_KEY environment credentials.
+                            </p>
                           </div>
-                          <p className="text-[5px] sm:text-[6px] text-white/30 leading-normal uppercase tracking-widest">
-                            This custom digital access token is securely authorized by the RoomX transaction platform using the configured client PAYMENT_API_KEY environment credentials.
-                          </p>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      /* Mobile Money Terminal */
+                      <div className="w-full aspect-[1.586] max-w-sm mx-auto rounded-2xl bg-gradient-to-br from-[#0d2a21] to-[#123a2d] border border-white/10 p-4 sm:p-6 flex flex-col justify-between text-white relative shadow-lg overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#10b981]/5 blur-[50px] rounded-full pointer-events-none" />
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black tracking-widest text-[#10b981] uppercase">Mobile Money Billing</span>
+                          <div className="flex gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                            <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1.5 py-2">
+                          <div className="text-[8px] text-white/40 uppercase tracking-widest font-bold">Selected Network</div>
+                          <div className="text-base font-bold font-nanum capitalize tracking-wide flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-yellow-400" />
+                            {provider === 'vodacom' ? 'M-Pesa (Vodacom)' : provider === 'tigo' ? 'Tigo Pesa' : provider === 'airtel' ? 'Airtel Money' : 'Halopesa (Halotel)'}
+                          </div>
+                          <div className="text-sm font-mono text-white/70 tracking-widest">
+                            +255 {phoneNumber || '7XX XXX XXX'}
+                          </div>
+                        </div>
+
+                        <div className="bg-[#10b981]/10 border border-[#10b981]/25 p-2 rounded-xl text-[9px] text-[#10b981] font-bold text-center leading-normal">
+                          ⚡ Push prompt will trigger directly on your SIM card.
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Payment Billing Form Inputs */}
@@ -323,74 +411,118 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
                         </div>
                       )}
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Cardholder Name</label>
-                        <div className="relative">
-                          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                          <input 
-                            type="text"
-                            required
-                            placeholder="Enter Cardholder Name"
-                            value={cardholderName}
-                            onChange={(e) => setCardholderName(e.target.value)}
-                            disabled={loading}
-                            onFocus={() => setIsFlipped(false)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Card Number</label>
-                        <div className="relative">
-                          <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                          <input 
-                            type="text"
-                            required
-                            placeholder="4000 1234 5678 9010"
-                            value={cardNumber}
-                            onChange={handleCardNumberChange}
-                            disabled={loading}
-                            onFocus={() => setIsFlipped(false)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm font-mono focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Expiry Date</label>
-                          <div className="relative">
-                            <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                            <input 
-                              type="text"
-                              required
-                              placeholder="MM/YY"
-                              value={expiryDate}
-                              onChange={handleExpiryChange}
-                              disabled={loading}
-                              onFocus={() => setIsFlipped(false)}
-                              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm font-mono focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
-                            />
+                      {paymentMethod === 'card' ? (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Cardholder Name</label>
+                            <div className="relative">
+                              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                              <input 
+                                type="text"
+                                required
+                                placeholder="Enter Cardholder Name"
+                                value={cardholderName}
+                                onChange={(e) => setCardholderName(e.target.value)}
+                                disabled={loading}
+                                onFocus={() => setIsFlipped(false)}
+                                className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
+                              />
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">CVV Code</label>
-                          <input 
-                            type="password"
-                            required
-                            placeholder="***"
-                            value={cvv}
-                            onChange={handleCvvChange}
-                            disabled={loading}
-                            onFocus={() => setIsFlipped(true)}
-                            onBlur={() => setIsFlipped(false)}
-                            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm font-mono focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
-                          />
-                        </div>
-                      </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Card Number</label>
+                            <div className="relative">
+                              <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                              <input 
+                                type="text"
+                                required
+                                placeholder="4000 1234 5678 9010"
+                                value={cardNumber}
+                                onChange={handleCardNumberChange}
+                                disabled={loading}
+                                onFocus={() => setIsFlipped(false)}
+                                className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-mono focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Expiry Date</label>
+                              <div className="relative">
+                                <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                                <input 
+                                  type="text"
+                                  required
+                                  placeholder="MM/YY"
+                                  value={expiryDate}
+                                  onChange={handleExpiryChange}
+                                  disabled={loading}
+                                  onFocus={() => setIsFlipped(false)}
+                                  className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-mono focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">CVV Code</label>
+                              <input 
+                                type="password"
+                                required
+                                placeholder="***"
+                                value={cvv}
+                                onChange={handleCvvChange}
+                                disabled={loading}
+                                onFocus={() => setIsFlipped(true)}
+                                onBlur={() => setIsFlipped(false)}
+                                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-mono focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Select Operator</label>
+                            <div className="grid grid-cols-4 gap-2">
+                              {['vodacom', 'tigo', 'airtel', 'halotel'].map((network) => (
+                                <button
+                                  key={network}
+                                  type="button"
+                                  onClick={() => setProvider(network)}
+                                  className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl border text-center transition-all ${
+                                    provider === network
+                                      ? 'bg-[#10b981] text-[#0d2a21] border-[#10b981]'
+                                      : 'bg-white/5 text-white/60 border-white/10 hover:text-white'
+                                  }`}
+                                  disabled={loading}
+                                >
+                                  {network === 'vodacom' ? 'M-Pesa' : network === 'tigo' ? 'Tigo' : network === 'airtel' ? 'Airtel' : 'Halo'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-wider block">Phone Number</label>
+                            <div className="relative">
+                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-white/40 font-mono">+255</span>
+                              <input 
+                                type="tel"
+                                required
+                                placeholder="754123456"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                                disabled={loading}
+                                className="w-full pl-16 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-mono focus:border-[#10b981] focus:ring-0 outline-none transition-colors disabled:opacity-50"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
+
 
                     <button 
                       type="submit"

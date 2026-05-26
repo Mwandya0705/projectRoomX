@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserByAuthId } from '@/lib/utils/auth'
-import { chargeCard, createSubscription } from '@/lib/payment/server'
+import { chargeCard, chargeMobileMoney, createSubscription } from '@/lib/payment/server'
 import { z } from 'zod'
 
 const checkoutSchema = z.object({
@@ -13,7 +13,10 @@ const checkoutSchema = z.object({
   expiryDate: z.string().optional(),
   cvv: z.string().optional(),
   currency: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  provider: z.string().optional(),
 })
+
 
 /**
  * POST /api/subscriptions/checkout
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate body (card details never logged)
     const body = await request.json()
-    const { roomId, cardholderName, cardNumber, expiryDate, cvv, currency } =
+    const { roomId, cardholderName, cardNumber, expiryDate, cvv, currency, phoneNumber, provider } =
       checkoutSchema.parse(body)
 
     console.log('[Checkout] Initiated for roomId:', roomId, '| user:', user.id)
@@ -78,8 +81,95 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Mobile Money payment flow ─────────────────────────────────────────
+    if (phoneNumber) {
+      if (!provider) {
+        return NextResponse.json(
+          { error: 'Missing mobile money provider (e.g. vodacom, tigo, airtel, halotel)' },
+          { status: 400 }
+        )
+      }
+
+      const [priceStr, roomCurrency] = (room.subscription_price_id || '29900:TZS').split(':')
+      const amount = Math.round(parseFloat(priceStr))
+      const paymentCurrency = (currency || roomCurrency || 'TZS').toUpperCase()
+
+      if (isNaN(amount) || amount <= 0) {
+        return NextResponse.json({ error: 'Invalid subscription price' }, { status: 400 })
+      }
+
+      console.log('[Checkout] Mobile money charge for room:', roomId, '| amount:', amount, paymentCurrency, '| provider:', provider)
+
+      const charge = await chargeMobileMoney({
+        amount,
+        currency: paymentCurrency,
+        description: `Monthly subscription to ${room.title}`,
+        phoneNumber,
+        provider,
+        customerEmail: user.email,
+        metadata: {
+          userId: String(user.id),
+          roomId: String(room.id),
+          type: 'subscription',
+        },
+      })
+
+      if (
+        charge.status !== 'completed' &&
+        charge.status !== 'success' &&
+        charge.status !== 'approved' &&
+        charge.status !== 'pending'
+      ) {
+        console.warn('[Checkout] Mobile money charge failed. Status:', charge.status)
+        return NextResponse.json(
+          { error: `Payment was not successful. Status: ${charge.status}` },
+          { status: 402 }
+        )
+      }
+
+      const isActive = charge.status === 'completed' || charge.status === 'success' || charge.status === 'approved'
+
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const adminSupabase = createAdminClient()
+
+      const { error: insertError } = await adminSupabase
+        .from('subscriptions')
+        .insert({
+          subscriber_id: user.id,
+          room_id: room.id,
+          stripe_subscription_id: charge.paymentId,
+          stripe_customer_id: user.id,
+          status: isActive ? 'active' : 'pending',
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          cancel_at_period_end: false,
+        })
+
+      if (insertError) {
+        console.error('[Checkout] Subscription insert error after mobile money charge:', insertError)
+        return NextResponse.json(
+          { error: 'Payment successful but failed to activate subscription locally. Contact support.' },
+          { status: 500 }
+        )
+      }
+
+      console.log('[Checkout] Mobile money subscription created:', user.id, '| paymentId:', charge.paymentId, '| status:', isActive ? 'active' : 'pending')
+
+      return NextResponse.json({
+        success: true,
+        message: isActive
+          ? 'Payment successful and subscription activated'
+          : 'Payment initiated. Enter PIN on your mobile phone to complete.',
+        redirectUrl: `/room/${room.id}`,
+        paymentId: charge.paymentId,
+      })
+    }
+
     // ── Direct card payment flow ──────────────────────────────────────────
     if (cardNumber) {
+
       if (!cardholderName || !expiryDate || !cvv) {
         return NextResponse.json(
           { error: 'Missing card details: cardholderName, expiryDate, and cvv are required' },
