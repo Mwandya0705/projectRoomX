@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserByAuthId } from '@/lib/utils/auth'
-import { createSubscription } from '@/lib/clickpesa/server'
+import { chargeCard, createSubscription } from '@/lib/payment/server'
 import { z } from 'zod'
 
 const checkoutSchema = z.object({
@@ -12,17 +12,18 @@ const checkoutSchema = z.object({
   cardNumber: z.string().optional(),
   expiryDate: z.string().optional(),
   cvv: z.string().optional(),
+  currency: z.string().optional(),
 })
 
 /**
  * POST /api/subscriptions/checkout
- * Create a Click Pesa payment request for room subscription
+ * Create a payment request or direct card charge for room subscription.
  */
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient()
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-    
+
     if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -32,21 +33,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Parse request body
+    // Parse and validate body (card details never logged)
     const body = await request.json()
-    console.log('[Checkout] Request body:', body)
-    const { roomId, cardholderName, cardNumber, expiryDate, cvv } = checkoutSchema.parse(body)
-    console.log('[Checkout] Parsed roomId:', roomId)
-    
-    // Validate roomId is not empty
+    const { roomId, cardholderName, cardNumber, expiryDate, cvv, currency } =
+      checkoutSchema.parse(body)
+
+    console.log('[Checkout] Initiated for roomId:', roomId, '| user:', user.id)
+
     if (!roomId || typeof roomId !== 'string') {
-      return NextResponse.json(
-        { error: 'Invalid room ID provided' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid room ID' }, { status: 400 })
     }
 
-    // Get room
+    // Fetch room
     const { data: room } = await supabase
       .from('rooms')
       .select('*')
@@ -57,7 +55,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 })
     }
 
-    // Check if user is the creator
     if (room.creator_id === user.id) {
       return NextResponse.json(
         { error: 'You cannot subscribe to your own room' },
@@ -65,55 +62,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Direct card payment flow
-    if (cardNumber) {
-      console.log('[Checkout] Processing direct Credit Card payment for room:', roomId)
-      console.log('[Checkout] PAYMENT_API_KEY present:', !!process.env.PAYMENT_API_KEY)
-      
-      if (!cardholderName || !expiryDate || !cvv) {
-        return NextResponse.json({ error: 'Missing credit card details' }, { status: 400 })
-      }
-
-      // Simulate transaction delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      const { createAdminClient } = await import('@/lib/supabase/admin')
-      const adminSupabase = createAdminClient()
-
-      const paymentId = `direct_pay_${user.id.substring(0, 8)}_${room.id.substring(0, 8)}_${Date.now()}`
-
-      // Create subscription directly in database
-      const { error: insertError } = await adminSupabase
-        .from('subscriptions')
-        .insert({
-          subscriber_id: user.id,
-          room_id: room.id,
-          stripe_subscription_id: paymentId,
-          stripe_customer_id: user.id,
-          status: 'active',
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          cancel_at_period_end: false,
-        })
-
-      if (insertError) {
-        console.error('[Checkout] Error inserting direct subscription:', insertError)
-        return NextResponse.json({ error: 'Failed to create subscription record' }, { status: 500 })
-      }
-
-      console.log('[Checkout] Direct subscription created successfully for user:', user.id)
-
-      return NextResponse.json({
-        success: true,
-        message: 'Payment authorized and subscription activated successfully',
-        redirectUrl: `/room/${room.id}`,
-      })
-    }
-
-    // Check if user already has an active subscription
+    // Check existing active subscription
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select('id')
       .eq('subscriber_id', user.id)
       .eq('room_id', roomId)
       .eq('status', 'active')
@@ -126,6 +78,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Direct card payment flow ──────────────────────────────────────────
+    if (cardNumber) {
+      if (!cardholderName || !expiryDate || !cvv) {
+        return NextResponse.json(
+          { error: 'Missing card details: cardholderName, expiryDate, and cvv are required' },
+          { status: 400 }
+        )
+      }
+
+      // Resolve amount & currency from room price or fallback
+      const [priceStr, roomCurrency] = (room.subscription_price_id || '29900:TZS').split(':')
+      const amount = Math.round(parseFloat(priceStr))
+      const paymentCurrency = (currency || roomCurrency || 'TZS').toUpperCase()
+
+      if (isNaN(amount) || amount <= 0) {
+        return NextResponse.json({ error: 'Invalid subscription price' }, { status: 400 })
+      }
+
+      console.log('[Checkout] Charging card for room:', roomId, '| amount:', amount, paymentCurrency)
+
+      // Charge the card via real payment API
+      const charge = await chargeCard({
+        amount,
+        currency: paymentCurrency,
+        description: `Monthly subscription to ${room.title}`,
+        cardholderName,
+        cardNumber,
+        expiryDate,
+        cvv,
+        customerEmail: user.email,
+        metadata: {
+          userId: String(user.id),
+          roomId: String(room.id),
+          type: 'subscription',
+        },
+      })
+
+      // ── Payment status gate — only activate if charge succeeded ──────────
+      if (charge.status !== 'completed' && charge.status !== 'success' && charge.status !== 'approved') {
+        console.warn('[Checkout] Card charge not approved. Status:', charge.status)
+        return NextResponse.json(
+          { error: `Payment was not approved. Status: ${charge.status}` },
+          { status: 402 }
+        )
+      }
+
+      console.log('[Checkout] Card charge approved. Creating subscription for user:', user.id)
+
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const adminSupabase = createAdminClient()
+
+      const { error: insertError } = await adminSupabase
+        .from('subscriptions')
+        .insert({
+          subscriber_id: user.id,
+          room_id: room.id,
+          stripe_subscription_id: charge.paymentId,
+          stripe_customer_id: user.id,
+          status: 'active',
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          cancel_at_period_end: false,
+        })
+
+      if (insertError) {
+        console.error('[Checkout] Subscription insert error after successful charge:', insertError)
+        return NextResponse.json(
+          { error: 'Payment successful but failed to activate subscription. Contact support.' },
+          { status: 500 }
+        )
+      }
+
+      console.log('[Checkout] Subscription activated for user:', user.id, '| paymentId:', charge.paymentId)
+
+      return NextResponse.json({
+        success: true,
+        message: 'Payment successful and subscription activated',
+        redirectUrl: `/room/${room.id}`,
+        paymentId: charge.paymentId,
+      })
+    }
+
+    // ── Redirect-based payment flow (no card in request) ─────────────────
     if (!room.subscription_price_id) {
       return NextResponse.json(
         { error: 'Room does not have a subscription price configured' },
@@ -133,73 +170,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse price from subscriptionPriceId (format: "amount:currency")
-    const [priceStr, currency] = room.subscription_price_id.split(':')
+    const [priceStr, roomCurrency] = room.subscription_price_id.split(':')
     const amount = parseFloat(priceStr)
-    // Ensure currency is uppercase (Click Pesa may require uppercase)
-    const paymentCurrency = (currency || 'TZS').toUpperCase()
+    const paymentCurrency = (currency || roomCurrency || 'TZS').toUpperCase()
 
     if (isNaN(amount) || amount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid subscription price' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid subscription price' }, { status: 400 })
     }
 
-    // Ensure amount is an integer (Click Pesa may require whole numbers)
-    const amountInCents = Math.round(amount)
-
-    // Get app URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(user.email)) {
-      return NextResponse.json(
-        { error: 'Invalid email address format' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid email address format' }, { status: 400 })
     }
 
-    // Construct URLs
-    // Note: Click Pesa will append payment_id as a query parameter automatically
-    const callbackUrl = `${appUrl}/api/webhooks/clickpesa`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const callbackUrl = `${appUrl}/api/webhooks/payment`
     const successUrl = `${appUrl}/room/${roomId}`
     const cancelUrl = `${appUrl}/subscribe/${room.creator_id}`
 
-    // Validate URLs
     try {
-      new URL(callbackUrl)
-      new URL(successUrl)
-      new URL(cancelUrl)
-    } catch (urlError) {
-      console.error('[Checkout] Invalid URL format:', { callbackUrl, successUrl, cancelUrl })
+      new URL(callbackUrl); new URL(successUrl); new URL(cancelUrl)
+    } catch {
       return NextResponse.json(
-        { error: 'Invalid URL configuration. Please check NEXT_PUBLIC_APP_URL environment variable.' },
+        { error: 'Invalid URL configuration. Check NEXT_PUBLIC_APP_URL.' },
         { status: 500 }
       )
     }
 
-    console.log('[Checkout] Creating subscription with:', {
-      amount,
-      currency: paymentCurrency,
-      email: user.email,
-      callbackUrl,
-      successUrl,
-      cancelUrl,
-    })
+    console.log('[Checkout] Creating redirect payment for room:', roomId, '| amount:', amount, paymentCurrency)
 
-    // Create Click Pesa subscription payment
     const subscription = await createSubscription({
-      amount: amountInCents,
+      amount: Math.round(amount),
       currency: paymentCurrency,
       description: `Monthly subscription to ${room.title}`,
       customerEmail: user.email,
       customerName: user.name || undefined,
       interval: 'month',
-      callbackUrl: callbackUrl,
-      successUrl: successUrl,
-      cancelUrl: cancelUrl,
+      callbackUrl,
+      successUrl,
+      cancelUrl,
       metadata: {
         userId: String(user.id),
         roomId: String(room.id),
@@ -207,22 +216,24 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       paymentUrl: subscription.paymentUrl,
-      subscriptionId: subscription.subscriptionId 
+      subscriptionId: subscription.subscriptionId,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })
     }
-    console.error('Error creating checkout session:', error)
+    console.error('[Checkout] Unhandled error:', error instanceof Error ? error.message : error)
     const errorMessage = error instanceof Error ? error.message : 'Internal server error'
-    const errorDetails = error instanceof Error ? error.stack : String(error)
-    console.error('Error details:', errorDetails)
-    return NextResponse.json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined 
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development'
+          ? (error instanceof Error ? error.stack : String(error))
+          : undefined,
+      },
+      { status: 500 }
+    )
   }
 }
-
