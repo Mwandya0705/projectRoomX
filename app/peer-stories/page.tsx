@@ -42,11 +42,11 @@ export default function PeerStoriesPage() {
         </div>
 
         {/* Hero */}
-        <div className="max-w-3xl mb-24">
-          <h1 className="text-[72px] lg:text-[88px] font-bold text-[#0d2a21] leading-none tracking-tighter mb-8 font-nanum">
+        <div className="max-w-3xl mb-16 sm:mb-24">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-bold text-[#0d2a21] leading-none tracking-tighter mb-8 font-nanum">
              Real Experts. <br/>Real Results.
           </h1>
-          <p className="text-xl text-[#0d2a21]/70 leading-relaxed font-satoshi">
+          <p className="text-lg sm:text-xl text-[#0d2a21]/70 leading-relaxed font-satoshi font-medium">
             Peer Stories is where our community shares their journeys. From scaling private 
             trading rooms to building global education brands, these are the creators 
             redefining the monetization era on RoomX.
@@ -79,21 +79,21 @@ export default function PeerStoriesPage() {
         </div>
 
         {/* Creator Spotlight */}
-        <div className="bg-[#10b981] rounded-[4rem] p-16 lg:p-24 text-[#0d2a21] grid lg:grid-cols-2 gap-16 items-center">
+        <div className="bg-[#10b981] rounded-[2rem] sm:rounded-[4rem] p-8 sm:p-16 lg:p-24 text-[#0d2a21] grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
            <div>
-              <Award className="w-12 h-12 mb-8" />
-              <h2 className="text-[52px] font-bold leading-none mb-8 font-nanum tracking-tight">Become the next success story</h2>
-              <p className="text-lg text-[#0d2a21]/80 mb-10 leading-relaxed max-w-md">
+              <Award className="w-10 h-10 sm:w-12 sm:h-12 mb-6 sm:mb-8" />
+              <h2 className="text-3xl sm:text-[52px] font-bold leading-none mb-6 sm:mb-8 font-nanum tracking-tight">Become the next success story</h2>
+              <p className="text-base sm:text-lg text-[#0d2a21]/80 mb-8 sm:mb-10 leading-relaxed max-w-md">
                 Starting your room is just the beginning. Our Growth team is here to help you 
                 optimize your funnels and maximize subscriber retention.
               </p>
               <Link href="/company/contact">
-                <button className="px-10 py-4 bg-[#0d2a21] text-white rounded-full font-bold shadow-xl hover:bg-[#184638] transition-all">
+                <button className="px-8 py-3.5 sm:px-10 sm:py-4 bg-[#0d2a21] text-white rounded-full font-bold shadow-xl hover:bg-[#184638] transition-all">
                   Apply for Spotlight
                 </button>
               </Link>
            </div>
-           <div className="aspect-square bg-[#0a8a61] rounded-[3rem] flex items-center justify-center text-[#10b981]/50 font-bold italic">
+           <div className="aspect-square bg-[#0a8a61] rounded-[2rem] sm:rounded-[3rem] flex items-center justify-center text-[#10b981]/50 font-bold italic">
               Spotlight_Feature_Prop
            </div>
         </div>

@@ -18,11 +18,11 @@ export default function DiscoverPage() {
         </div>
 
         {/* Hero */}
-        <div className="max-w-4xl mb-24">
-          <h1 className="text-[72px] lg:text-[92px] font-bold text-[#0d2a21] leading-none tracking-tighter mb-8 font-nanum">
+        <div className="max-w-4xl mb-16 sm:mb-24">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[92px] font-bold text-[#0d2a21] leading-none tracking-tighter mb-8 font-nanum">
              The Infrastructure <br/><span className="text-[#10b981]">of Influence.</span>
           </h1>
-          <p className="text-xl text-[#0d2a21]/70 leading-relaxed font-satoshi max-w-2xl">
+          <p className="text-lg sm:text-xl text-[#0d2a21]/70 leading-relaxed font-satoshi max-w-2xl">
             Discover the engines that drive the next generation of private communities. 
             RoomX is built to handle the complexities of real-time expertise, 
             so you can focus on building your legacy.
@@ -30,8 +30,8 @@ export default function DiscoverPage() {
         </div>
 
         {/* Discover Grid */}
-        <div className="grid lg:grid-cols-2 gap-20 mb-32">
-           <div className="space-y-20">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 mb-20 sm:mb-32">
+           <div className="space-y-12 sm:space-y-20">
               <DiscoverSection 
                 icon={<Cpu className="w-8 h-8 text-emerald-600" />}
                 title="Prism: The Live Engine"
@@ -43,15 +43,15 @@ export default function DiscoverPage() {
                 desc="Beyond static ads. Adroom uses AI to analyze your live sessions and generate high-intent social clips that drive traffic directly to your next room."
               />
            </div>
-           <div className="aspect-[4/5] rounded-[4rem] bg-white/40 backdrop-blur-md border border-white/60 flex items-center justify-center text-gray-400 font-bold italic shadow-sm relative overflow-hidden">
+           <div className="aspect-[4/5] rounded-[2rem] sm:rounded-[4rem] bg-white/40 backdrop-blur-md border border-white/60 flex items-center justify-center text-gray-400 font-bold italic shadow-sm relative overflow-hidden">
               Platform_Preview_Video_Prop
               <div className="absolute inset-0 bg-gradient-to-t from-[#f5f6f2] to-transparent opacity-40"></div>
            </div>
         </div>
 
         {/* The Workflow */}
-        <div className="bg-[#0d2a21] rounded-[4rem] p-16 lg:p-24 text-white">
-           <h2 className="text-5xl lg:text-[72px] font-bold mb-16 font-nanum tracking-tight text-center">How it flows</h2>
+        <div className="bg-[#0d2a21] rounded-[2rem] sm:rounded-[4rem] p-8 sm:p-16 lg:p-24 text-white">
+           <h2 className="text-3xl sm:text-5xl lg:text-[72px] font-bold mb-10 sm:mb-16 font-nanum tracking-tight text-center">How it flows</h2>
            <div className="grid md:grid-cols-3 gap-12">
               <Step number="01" title="Build your Room" desc="Configure your brand, set your subscription tiers, and prepare your workspace." />
               <Step number="02" title="Go Live" desc="Launch Prism and interact with your high-intent community in real-time." />

@@ -6,6 +6,13 @@
   --background: #ffffff;
   --foreground: #171717;
   --brand: #062b2a;
+
+  /* Premium Fluid Typography Clamps */
+  --fluid-h1: clamp(2.2rem, 7.5vw, 5.8rem);
+  --fluid-h1-sub: clamp(1.4rem, 4.8vw, 2.4rem);
+  --fluid-h2: clamp(1.8rem, 4.2vw, 3.5rem);
+  --fluid-h3: clamp(1.4rem, 3vw, 2.5rem);
+  --fluid-body: clamp(0.95rem, 1.2vw, 1.25rem);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,8 +31,38 @@ body {
   .text-balance {
     text-wrap: balance;
   }
-}
 
+  /* Fluid Typography Utility Classes */
+  .text-fluid-h1 {
+    font-size: var(--fluid-h1);
+  }
+  .text-fluid-h1-sub {
+    font-size: var(--fluid-h1-sub);
+  }
+  .text-fluid-h2 {
+    font-size: var(--fluid-h2);
+  }
+  .text-fluid-h3 {
+    font-size: var(--fluid-h3);
+  }
+  .text-fluid-body {
+    font-size: var(--fluid-body);
+  }
+
+  /* 3D Payment Card Utilities */
+  .preserve-3d {
+    transform-style: preserve-3d;
+    perspective: 1000px;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  /* Container Containment */
+  .contain-inline {
+    container-type: inline-size;
+  }
+}
 
 /* 🌀 Hyper-Cinematic View Transitions API */
 ::view-transition-group(root) {
@@ -71,4 +108,27 @@ body {
 /* Prevent flicker during swap */
 ::view-transition {
   background-color: var(--brand);
+}
+
+/* Categorize short-height viewports (e.g. 1024x600, 1280x800) as md devices */
+@media (max-height: 800px) {
+  .short-screen-hero-h1 {
+    font-size: clamp(2rem, 6.5vw, 3.8rem) !important;
+    line-height: 1.15 !important;
+  }
+  .short-screen-hero-span {
+    white-space: normal !important;
+  }
+}
+
+/* Portrait‑specific hero tweaks */
+@media (orientation: portrait) {
+  .portrait-hero-h1 {
+    font-size: clamp(2rem,6vw,3.5rem) !important;
+    line-height: 1.15 !important;
+    padding-top: 1rem !important; /* pt-8 */
+  }
+  .portrait-hero-span {
+    white-space: normal !important;
+  }
 }

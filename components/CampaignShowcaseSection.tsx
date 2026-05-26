@@ -130,7 +130,7 @@ export default function CampaignShowcaseSection() {
   return (
     <section 
       ref={sectionRef} 
-      className="py-32 overflow-hidden border-t border-white/5 relative bg-[#17171c]"
+      className="py-16 lg:py-32 overflow-hidden border-t border-white/5 relative bg-[#17171c]"
       style={{
         backgroundImage: 'url("/assets/images/campb6.jpg")',
         backgroundSize: 'cover',

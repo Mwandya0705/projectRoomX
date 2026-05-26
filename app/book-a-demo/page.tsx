@@ -33,10 +33,10 @@ export default function BookDemoPage() {
            <div className="absolute -top-40 -left-20 w-[600px] h-[600px] bg-[#10b981]/5 blur-[120px] rounded-full -z-10" />
            
            <div className="max-w-3xl mb-16">
-              <h1 className="text-[72px] lg:text-[92px] font-bold text-[#0d2a21] leading-[0.9] tracking-tighter mb-8 font-nanum">
+              <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[92px] font-bold text-[#0d2a21] leading-[0.9] tracking-tighter mb-8 font-nanum">
                  The Monetization <br/><span className="text-[#10b981]">Pipeline.</span>
               </h1>
-              <p className="text-xl text-[#0d2a21]/60 leading-relaxed font-medium max-w-2xl">
+              <p className="text-lg sm:text-xl text-[#0d2a21]/60 leading-relaxed font-medium max-w-2xl">
                  RoomX isn't just a platform—it's an economic engine. We've optimized every friction point between your expertise and your revenue.
               </p>
            </div>
@@ -68,24 +68,24 @@ export default function BookDemoPage() {
         </div>
 
         {/* Call to Action */}
-        <div className="bg-[#0d2a21] rounded-[4rem] p-12 lg:p-24 text-white relative overflow-hidden shadow-2xl">
+        <div className="bg-[#0d2a21] rounded-[2rem] sm:rounded-[4rem] p-8 sm:p-12 lg:p-24 text-white relative overflow-hidden shadow-2xl">
            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#10b981]/10 blur-[100px] rounded-full" />
            
            <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12">
               <div className="max-w-xl">
-                 <h2 className="text-4xl lg:text-6xl font-bold font-nanum mb-6 leading-tight">Ready to build your <br/>Sanctuary?</h2>
-                 <p className="text-white/40 text-lg font-medium leading-relaxed">
+                 <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold font-nanum mb-6 leading-tight">Ready to build your <br/>Sanctuary?</h2>
+                 <p className="text-white/40 text-base sm:text-lg font-medium leading-relaxed">
                     Schedule a 1-on-1 Sanctuary Walkthrough with our strategists to configure 
                     your monetization pipeline today.
                  </p>
               </div>
               
-              <Link href="/dashboard/scheduling">
-                 <button className="px-12 py-7 bg-white text-[#0d2a21] rounded-[2.5rem] font-bold text-xl hover:scale-105 hover:bg-[#10b981] transition-all flex items-center gap-4 group shadow-xl">
-                    <Calendar className="w-6 h-6" />
+              <Link href="/dashboard/scheduling" className="w-full sm:w-auto">
+                 <button className="w-full sm:w-auto px-6 py-4 sm:px-12 sm:py-7 bg-white text-[#0d2a21] rounded-[1.5rem] sm:rounded-[2.5rem] font-bold text-base sm:text-xl hover:scale-105 hover:bg-[#10b981] transition-all flex items-center justify-center gap-3 sm:gap-4 group shadow-xl">
+                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
                     <span>Schedule Now</span>
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
-                 </button>
+                    <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-2 transition-transform" />
+                  </button>
               </Link>
            </div>
         </div>

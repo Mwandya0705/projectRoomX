@@ -168,7 +168,7 @@ export default function Blogging() {
   return (
     <div className="bg-[#f5f6f2] font-sans overflow-hidden">
       {/* SECTION 1: AI Engine Showcase */}
-      <section className="w-full max-w-[1550px] mx-auto px-6 sm:px-10 lg:px-12 pt-36 sm:pt-44 lg:pt-56 pb-20 grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+      <section className="w-full max-w-[1550px] mx-auto px-6 sm:px-10 lg:px-12 pt-10 sm:pt-16 lg:pt-56 pb-12 lg:pb-20 grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
         
         {/* Visual Overlapping Compositions */}
         <div className="relative order-2 lg:order-1 max-w-[550px] lg:max-w-none mx-auto w-full px-4 sm:px-8 lg:px-0">
@@ -187,12 +187,12 @@ export default function Blogging() {
             />
           </div>
           {/* Overlay 1 (left side card) */}
-          <div className="hidden sm:block absolute -top-10 -left-8 w-[200px] h-[280px] rounded-[18px] overflow-hidden shadow-2xl border-4 border-yellow-300 bg-white z-30">
+          <div className="absolute -top-4 -left-3 sm:-top-8 sm:-left-6 w-[120px] h-[165px] sm:w-[170px] sm:h-[240px] lg:w-[200px] lg:h-[280px] rounded-[14px] sm:rounded-[18px] overflow-hidden shadow-2xl border-2 sm:border-4 border-yellow-300 bg-white z-30">
             <img src="/assets/images/think.jpg" alt="Thought process" className="w-full h-full object-cover" />
           </div>
           {/* Overlay 2 (right side card) */}
-          <div className="hidden sm:block absolute -bottom-10 -right-8 w-[200px] rounded-[18px] overflow-hidden shadow-2xl border-4 border-white z-30">
-             <img src="/assets/images/cyber11.jpg" alt="Cyber design" className="w-full h-auto" />
+          <div className="absolute -bottom-4 -right-3 sm:-bottom-8 sm:-right-6 w-[120px] h-[165px] sm:w-[170px] sm:h-[240px] lg:w-[200px] lg:h-[280px] rounded-[14px] sm:rounded-[18px] overflow-hidden shadow-2xl border-2 sm:border-4 border-white bg-white z-30">
+             <img src="/assets/images/cyber11.jpg" alt="Cyber design" className="w-full h-full object-cover" />
           </div>
         </div>
 

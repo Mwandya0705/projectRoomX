@@ -50,7 +50,7 @@ export default function Cards() {
         {/* ================= Content Creation Room (FAST) ================= */}
         <div 
           ref={contentCardRef}
-          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-orange-300 via-rose-300 to-amber-300 p-8 sm:p-12 min-h-[400px] lg:min-h-[480px] flex flex-col justify-start will-change-transform"
+          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-orange-300 via-rose-300 to-amber-300 pt-4 pb-4 px-8 sm:px-12 min-h-[400px] lg:min-h-[480px] flex flex-col justify-start will-change-transform"
         >
           <div className="relative z-10">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 tracking-tight">
@@ -79,7 +79,7 @@ export default function Cards() {
         {/* ================= Trading Room (SLOW) ================= */}
         <div 
           ref={tradingCardRef}
-          className="relative rounded-[2.5rem] bg-gradient-to-br from-teal-200 via-emerald-100 to-emerald-200 p-8 sm:p-12 min-h-[400px] lg:min-h-[480px] flex flex-col justify-start will-change-transform"
+          className="relative rounded-[2.5rem] bg-gradient-to-br from-teal-200 via-emerald-100 to-emerald-200 pt-4 pb-4 px-8 sm:px-12 min-h-[400px] lg:min-h-[480px] flex flex-col justify-start will-change-transform"
         >
           <div className="relative z-10">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 tracking-tight">

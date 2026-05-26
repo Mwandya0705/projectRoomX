@@ -36,7 +36,8 @@ import {
   Brain,
   Loader2,
   CheckCircle,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react'
 import type { Room, User } from '@/lib/types/database'
 import InviteModal from './InviteModal'
@@ -200,51 +201,59 @@ export default function LiveRoom({ roomId, room, user, isCreator }: LiveRoomProp
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="absolute top-6 left-6 right-6 z-40"
+        className="absolute top-3 sm:top-6 left-3 sm:left-6 right-3 sm:right-6 z-40"
       >
-        <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-100/10 rounded-2xl px-6 py-3 flex items-center justify-between shadow-2xl shadow-black/80">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="group flex items-center gap-2 text-zinc-400 hover:text-white transition-all">
-              <div className="p-2 rounded-lg group-hover:bg-zinc-800 transition-all">
-                <ChevronLeft size={18} />
+        <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-100/10 rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-2xl shadow-black/80">
+          <div className="flex items-center gap-2 sm:gap-6">
+            <Link href="/dashboard" className="group flex items-center gap-1.5 sm:gap-2 text-zinc-400 hover:text-white transition-all">
+              <div className="p-1.5 sm:p-2 rounded-lg group-hover:bg-zinc-800 transition-all">
+                <ChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
               </div>
-              <span className="font-medium hidden sm:inline">Exit to Dashboard</span>
+              <span className="font-medium text-xs sm:text-sm hidden md:inline">Exit to Dashboard</span>
             </Link>
-            <div className="h-4 w-px bg-zinc-800" />
+            <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
             <div className="flex flex-col">
-              <h1 className="text-white font-bold tracking-tight text-lg line-clamp-1 font-nanum">{room.title}</h1>
+              <h1 className="text-white font-bold tracking-tight text-sm sm:text-base md:text-lg line-clamp-1 font-nanum">{room.title}</h1>
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${intel.isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#10b981]'}`} />
-                <span className={`text-[10px] font-black ${intel.isRecording ? 'text-red-500' : 'text-[#10b981]'} uppercase tracking-widest leading-none`}>
-                  {intel.isRecording ? 'RECORDING SESSION' : 'STUDIO ACTIVE'}
+                <span className={`text-[8px] sm:text-[10px] font-black ${intel.isRecording ? 'text-red-500' : 'text-[#10b981]'} uppercase tracking-widest leading-none`}>
+                  {intel.isRecording ? 'RECORDING' : 'STUDIO ACTIVE'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isCreator && (
               <button
                 onClick={() => {
                   if (intel.isRecording) intel.stopRecording()
                   else {
-                    // Start recording (In a production app, we capture the master stream from the LiveKit room)
                     const stream = new MediaStream() 
                     intel.startRecording(stream)
                   }
                 }}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${intel.isRecording ? 'bg-red-600 hover:bg-red-500 text-white animate-pulse' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white'}`}
+                className={`flex items-center gap-2 px-3 py-2.5 sm:px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${intel.isRecording ? 'bg-red-600 hover:bg-red-500 text-white animate-pulse' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white'}`}
+                title={intel.isRecording ? 'Stop Recording' : 'Start Intel'}
               >
                 <Radio size={14} />
-                <span>{intel.isRecording ? 'Stop Recording' : 'Start Intel'}</span>
+                <span className="hidden sm:inline">{intel.isRecording ? 'Stop Rec' : 'Start Intel'}</span>
               </button>
             )}
             <button
               onClick={() => setIsInviteModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/30"
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/30"
+              title="Invite Members"
             >
-              <UserPlus size={16} />
+              <UserPlus size={15} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Invite</span>
+            </button>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="flex lg:hidden items-center justify-center p-2.5 bg-zinc-800 text-zinc-300 hover:text-white rounded-xl transition-all shadow-lg"
+              title="Toggle Chat & Intel"
+            >
+              <MessageSquare size={15} />
             </button>
           </div>
         </div>
@@ -266,26 +275,36 @@ export default function LiveRoom({ roomId, room, user, isCreator }: LiveRoomProp
         <AnimatePresence>
           {sidebarOpen && (
             <motion.aside
-              initial={{ x: 320 }}
+              initial={{ x: '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: 320 }}
-              className="w-80 h-full bg-zinc-950 border-l border-white/5 flex flex-col z-30 shadow-2xl"
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 lg:static lg:h-full w-full sm:w-80 bg-zinc-950 lg:border-l border-white/5 flex flex-col z-[100] lg:z-30 shadow-2xl"
             >
               <div className="p-6 pb-2">
-                <div className="flex p-1 bg-zinc-900 rounded-2xl mb-4">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="flex-1 flex p-1 bg-zinc-900 rounded-2xl">
+                    <button
+                      onClick={() => setActiveTab('chat')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'chat' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      <MessageSquare size={14} />
+                      Chat
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('intel')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'intel' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      <Brain size={14} />
+                      Intel
+                    </button>
+                  </div>
                   <button
-                    onClick={() => setActiveTab('chat')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'chat' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    onClick={() => setSidebarOpen(false)}
+                    className="flex lg:hidden p-3 bg-zinc-900 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800 transition-all shrink-0"
+                    title="Close Sidebar"
                   >
-                    <MessageSquare size={14} />
-                    Chat
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('intel')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'intel' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
-                  >
-                    <Brain size={14} />
-                    Intel
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -363,7 +382,7 @@ export default function LiveRoom({ roomId, room, user, isCreator }: LiveRoomProp
 
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className={`absolute right-0 top-1/2 -translate-y-1/2 z-40 w-6 h-20 bg-zinc-800 hover:bg-zinc-700 rounded-l-xl transition-all flex items-center justify-center text-zinc-500 hover:text-zinc-200 border border-zinc-700/50 ${sidebarOpen ? 'mr-80' : 'mr-0'}`}
+          className={`hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-40 w-6 h-20 bg-zinc-800 hover:bg-zinc-700 rounded-l-xl transition-all items-center justify-center text-zinc-500 hover:text-zinc-200 border border-zinc-700/50 ${sidebarOpen ? 'mr-80' : 'mr-0'}`}
         >
           {sidebarOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -389,17 +408,17 @@ function CustomVideoConference({ isCreator }: { isCreator: boolean }) {
         <ParticipantTile className="!bg-zinc-900/50 !rounded-[2.5rem] !border-none !overflow-hidden shadow-2xl relative group" />
       </GridLayout>
 
-      <div className="absolute top-8 left-8 flex flex-row items-center gap-3 pointer-events-none">
+      <div className="absolute top-4 sm:top-8 left-4 sm:left-8 flex flex-row items-center gap-3 pointer-events-none">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-3 bg-black/60 backdrop-blur-xl border border-white/10 px-5 py-2.5 rounded-2xl shadow-2xl"
+          className="flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl shadow-2xl"
         >
           <div className="relative flex items-center justify-center">
-            <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping absolute" />
-            <div className="w-2.5 h-2.5 bg-red-500 rounded-full relative" />
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-ping absolute" />
+            <div className="w-2 h-2 bg-red-500 rounded-full relative" />
           </div>
-          <span className="text-[11px] font-black text-white uppercase tracking-[0.25em] leading-none">Studio Live</span>
+          <span className="text-[9px] sm:text-[11px] font-black text-white uppercase tracking-[0.25em] leading-none">Studio Live</span>
         </motion.div>
       </div>
     </div>
@@ -430,32 +449,32 @@ function RoomControls({
   }
 
   return (
-    <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-2.5 rounded-[2.5rem] flex items-center gap-2 shadow-2xl ring-1 ring-white/5">
-      <div className="flex items-center gap-2 px-2">
+    <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-1.5 sm:p-2.5 rounded-[2rem] sm:rounded-[2.5rem] flex items-center gap-1.5 sm:gap-2 shadow-2xl ring-1 ring-white/5">
+      <div className="flex items-center gap-1.5 sm:gap-2 px-1 sm:px-2">
         {isCreator && (
           <>
             <TrackToggle source={Track.Source.Microphone}>
-              <div className="p-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl transition-all group active:scale-90">
-                <Mic size={20} className="group-hover:text-indigo-400" />
+              <div className="p-3 sm:p-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl sm:rounded-2xl transition-all group active:scale-90">
+                <Mic size={18} className="sm:w-5 sm:h-5 group-hover:text-indigo-400" />
               </div>
             </TrackToggle>
             <TrackToggle source={Track.Source.Camera}>
-              <div className="p-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl transition-all group active:scale-90">
-                <Video size={20} className="group-hover:text-indigo-400" />
+              <div className="p-3 sm:p-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl sm:rounded-2xl transition-all group active:scale-90">
+                <Video size={18} className="sm:w-5 sm:h-5 group-hover:text-indigo-400" />
               </div>
             </TrackToggle>
           </>
         )}
       </div>
 
-      <div className="h-10 w-px bg-zinc-800 mx-2" />
+      <div className="h-8 sm:h-10 w-px bg-zinc-800 mx-1 sm:mx-2" />
 
       <button
         onClick={handleLeave}
-        className="px-8 py-4 bg-red-600/90 hover:bg-red-500 text-white text-xs font-black uppercase tracking-[0.15em] rounded-[1.5rem] flex items-center gap-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-600/20"
+        className="px-4 sm:px-8 py-3 sm:py-4 bg-red-600/90 hover:bg-red-500 text-white text-[10px] sm:text-xs font-black uppercase tracking-[0.15em] rounded-xl sm:rounded-[1.5rem] flex items-center gap-2 sm:gap-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-600/20"
       >
-        <LogOut size={18} />
-        {isCreator ? 'End Reality' : 'Leave'}
+        <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
+        <span>{isCreator ? 'End Reality' : 'Leave'}</span>
       </button>
     </div>
   )

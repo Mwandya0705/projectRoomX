@@ -34,6 +34,7 @@ export default function AIStudioClient({ user, initialCredits, initialJobs }: Pr
   const [credits, setCredits] = useState(initialCredits)
   const [jobs, setJobs] = useState<AIJob[]>(initialJobs)
   const [activeTab, setActiveTab] = useState<'create' | 'history' | 'credits'>('create')
+  const [workspaceTab, setWorkspaceTab] = useState<'controls' | 'canvas'>('controls')
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -52,6 +53,7 @@ export default function AIStudioClient({ user, initialCredits, initialJobs }: Pr
   const handleGenerate = async () => {
     if (!prompt.trim()) { setError('Please enter a prompt'); return }
     setLoading(true); setError(null); setResult(null)
+    setWorkspaceTab('canvas')
     try {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
@@ -95,9 +97,9 @@ export default function AIStudioClient({ user, initialCredits, initialJobs }: Pr
       </header>
 
       {/* Main Container - Adjusted Padding for Mobile Bottom Bar */}
-      <div className="flex flex-col lg:flex-row h-auto lg:h-screen pt-16 pb-16 lg:pb-0 overflow-x-hidden">
+      <div className="flex flex-col md:flex-row h-[100dvh] pt-16 pb-16 md:pb-0 overflow-x-hidden">
         {/* Sidebar - Desktop Layout (Side) and Mobile Layout (Bottom Sticky Nav Bar) */}
-        <aside className="fixed bottom-0 left-0 right-0 h-16 lg:h-auto lg:static lg:w-56 border-t lg:border-t-0 lg:border-r border-white/5 flex flex-row lg:flex-col justify-around lg:justify-start gap-1 px-4 py-2 lg:px-3 lg:py-6 bg-[#17171c] z-50">
+        <aside className="fixed bottom-0 left-0 right-0 h-16 md:h-auto md:static md:w-20 lg:w-56 border-t md:border-t-0 md:border-r border-white/5 flex flex-row md:flex-col justify-around md:justify-start gap-1 px-4 py-2 md:px-3 md:py-6 bg-[#17171c] z-50">
           {[
             { id: 'create',  icon: '✦', label: 'Create' },
             { id: 'history', icon: '◷', label: 'History' },
@@ -129,12 +131,40 @@ export default function AIStudioClient({ user, initialCredits, initialJobs }: Pr
         </aside>
 
         {/* Main Workspace Frame */}
-        <main className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-[#0a1210]">
+        <main className="flex-1 flex flex-col overflow-y-auto md:overflow-hidden bg-[#0a1210]">
           {activeTab === 'create' && (
-            <>
+            <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
+              {/* Segmented workspace toggle (Controls vs Canvas) for mobile */}
+              <div className="flex md:hidden p-4 bg-[#17171c] border-b border-white/5 shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceTab('controls')}
+                  className={`flex-1 py-2.5 rounded-[12px] text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
+                    workspaceTab === 'controls'
+                      ? 'bg-[#ff7759]/10 text-[#ff7759] border-[#ff7759]/20 shadow-md'
+                      : 'border-transparent text-white/40 hover:text-white/70'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  Controls
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceTab('canvas')}
+                  className={`flex-1 py-2.5 rounded-[12px] text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
+                    workspaceTab === 'canvas'
+                      ? 'bg-[#ff7759]/10 text-[#ff7759] border-[#ff7759]/20 shadow-md'
+                      : 'border-transparent text-white/40 hover:text-white/70'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Canvas
+                </button>
+              </div>
+
               {/* Left Panel: Inputs - Cohere sober command center style */}
-              <div className="w-full lg:w-[440px] flex flex-col border-b lg:border-b-0 lg:border-r border-white/5 bg-[#17171c] overflow-y-auto shrink-0">
-                <div className="p-6 space-y-6">
+              <div className={`w-full md:w-[clamp(280px,30vw,440px)] flex-col border-b md:border-b-0 md:border-r border-white/5 bg-[#17171c] overflow-y-auto shrink-0 ${workspaceTab === 'controls' ? 'flex' : 'hidden md:flex'}`}>
+                <div className="p-4 sm:p-6 space-y-6">
 
                   {/* Mode Selector */}
                   <div>
@@ -202,7 +232,7 @@ export default function AIStudioClient({ user, initialCredits, initialJobs }: Pr
                       onDragLeave={() => setDragOver(false)}
                       onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if(f) handleUpload(f) }}
                       onClick={() => fileRef.current?.click()}
-                      className={`relative h-28 rounded-[22px] border-2 border-dashed flex items-center justify-center cursor-pointer transition-all ${
+                      className={`relative aspect-video w-full min-h-[112px] rounded-[22px] border-2 border-dashed flex items-center justify-center cursor-pointer transition-all ${
                         dragOver ? 'border-[#ff7759] bg-[#ff7759]/5' : uploadedPreview ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/5 hover:border-white/20 bg-[#0a1210]'
                       }`}
                     >
@@ -274,10 +304,10 @@ export default function AIStudioClient({ user, initialCredits, initialJobs }: Pr
               </div>
 
               {/* Right Panel: Previews and Outputs */}
-              <div className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto">
+              <div className={`flex-1 flex-col p-4 md:p-6 overflow-y-auto ${workspaceTab === 'canvas' ? 'flex' : 'hidden md:flex'}`}>
                 <div className="flex-1 flex flex-col gap-4 max-w-5xl mx-auto w-full">
                   {/* Signature Output Container with rounded-[22px] (Signature Radius) */}
-                  <div className="flex-1 rounded-[22px] border border-white/5 bg-[#17171c] flex items-center justify-center min-h-[380px] lg:min-h-[460px] relative overflow-hidden shadow-inner">
+                  <div className="flex-1 rounded-[22px] border border-white/5 bg-[#17171c] flex items-center justify-center min-h-[300px] md:min-h-0 relative overflow-hidden shadow-inner">
                     {loading && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#17171c]/90">
                         {/* Minimalist circular geometric indicator */}
@@ -359,7 +389,7 @@ export default function AIStudioClient({ user, initialCredits, initialJobs }: Pr
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {activeTab === 'history' && (

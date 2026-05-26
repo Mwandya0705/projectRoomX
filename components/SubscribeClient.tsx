@@ -166,8 +166,8 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
     <div className="min-h-screen bg-[#f5f6f2] font-sans overflow-x-hidden">
       <NavigationClient />
 
-      <main className="max-w-7xl mx-auto px-6 lg:px-12 pt-32 pb-24">
-        <div className="grid lg:grid-cols-[1.2fr_1fr] gap-20 items-center">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 pt-28 sm:pt-32 pb-24">
+        <div className="grid lg:grid-cols-[1.2fr_1fr] gap-10 lg:gap-20 items-center">
           
           {/* Left: Value Proposition */}
           <div className="space-y-12">
@@ -176,7 +176,7 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
               Private Sanctuary Access
             </div>
 
-            <h1 className="text-[56px] lg:text-[76px] font-bold text-[#0d2a21] leading-[0.95] tracking-tighter font-nanum">
+            <h1 className="text-[40px] sm:text-[56px] lg:text-[76px] font-bold text-[#0d2a21] leading-[0.95] tracking-tighter font-nanum">
               Secure your <br/><span className="text-[#10b981]">Access Pass.</span>
             </h1>
 
@@ -184,7 +184,7 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
               You're entering {room.creator}'s private sanctuary. To maintain the quality and exclusivity of the content, this room requires an active subscription pass.
             </p>
 
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4 sm:gap-6 lg:gap-0 lg:space-y-6">
               <BenefitItem icon={<Zap className="w-5 h-5 text-yellow-500" />} text="Real-time 4K Low Latency Streaming" />
               <BenefitItem icon={<Users className="w-5 h-5 text-blue-500" />} text="Direct Collaboration with Creator" />
               <BenefitItem icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />} text="Exclusive Materials & Resources" />
@@ -195,7 +195,7 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
           <div className="relative">
             <div className="absolute -inset-4 bg-gradient-to-tr from-[#10b981]/20 to-blue-500/20 blur-3xl opacity-50 transition-opacity duration-700" />
             
-            <div className="relative bg-[#0d2a21] rounded-[3rem] p-10 lg:p-12 text-white shadow-2xl overflow-hidden border border-white/5 min-h-[580px] flex flex-col justify-between">
+            <div className="relative bg-[#0d2a21] rounded-3xl sm:rounded-[3rem] p-5 sm:p-10 lg:p-12 text-white shadow-2xl overflow-hidden border border-white/5 min-h-[580px] sm:min-h-[620px] lg:min-h-[600px] flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-64 h-64 bg-[#10b981]/10 blur-[100px] rounded-full pointer-events-none" />
               
               {/* STEP 1: Summary Panel */}
@@ -255,11 +255,11 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
                     </button>
                     
                     {/* Visual Credit Card Container */}
-                    <div className="w-full h-44 rounded-2xl relative preserve-3d transition-transform duration-700 ease-out"
+                    <div className="w-full aspect-[1.586] max-w-sm mx-auto rounded-2xl relative preserve-3d transition-transform duration-700 ease-out"
                          style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
                       
                       {/* FRONT OF CARD */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#10b981] to-[#047857] rounded-2xl p-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white">
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#10b981] to-[#047857] rounded-2xl p-4 sm:p-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white">
                         <div className="flex justify-between items-start">
                           <div className="w-10 h-7 bg-yellow-500/20 border border-yellow-500/30 rounded-md flex items-center justify-center">
                             {/* Card Chip graphic */}
@@ -272,20 +272,20 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
                         
                         <div className="space-y-3">
                           {/* Card Number display */}
-                          <div className="text-xl font-bold font-mono tracking-widest">
+                          <div className="text-base xs:text-lg sm:text-xl font-bold font-mono tracking-widest whitespace-nowrap">
                             {cardNumber || '•••• •••• •••• ••••'}
                           </div>
                           
                           <div className="flex justify-between items-end">
                             <div className="space-y-1">
                               <span className="text-[7px] text-white/50 uppercase tracking-widest block">Cardholder</span>
-                              <span className="text-xs font-bold uppercase tracking-wider block max-w-[180px] truncate">
+                              <span className="text-[9px] xs:text-[11px] sm:text-xs font-bold uppercase tracking-wider block max-w-[110px] xs:max-w-[180px] truncate">
                                 {cardholderName || 'YOUR FULL NAME'}
                               </span>
                             </div>
                             <div className="space-y-1 text-right">
                               <span className="text-[7px] text-white/50 uppercase tracking-widest block">Expires</span>
-                              <span className="text-xs font-bold font-mono block">
+                              <span className="text-[10px] sm:text-xs font-bold font-mono block">
                                 {expiryDate || 'MM/YY'}
                               </span>
                             </div>
@@ -294,19 +294,19 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
                       </div>
 
                       {/* BACK OF CARD */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#064e3b] to-[#022c22] rounded-2xl py-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white"
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#064e3b] to-[#022c22] rounded-2xl py-4 sm:py-6 flex flex-col justify-between backface-hidden shadow-lg border border-white/10 text-white"
                            style={{ transform: 'rotateY(180deg)' }}>
-                        <div className="w-full h-8 bg-black/80 mt-1" />
-                        <div className="px-6 space-y-4">
-                          <div className="flex justify-between items-center gap-4">
-                            <div className="flex-1 h-8 bg-white/20 rounded flex items-center justify-end px-3 font-mono text-xs text-white/50 tracking-widest italic line-through">
+                        <div className="w-full h-6 sm:h-8 bg-black/80 mt-1" />
+                        <div className="px-4 sm:px-6 space-y-2 sm:space-y-4">
+                          <div className="flex justify-between items-center gap-2 sm:gap-4">
+                            <div className="flex-1 h-6 sm:h-8 bg-white/20 rounded flex items-center justify-end px-2 sm:px-3 font-mono text-[9px] sm:text-xs text-white/50 tracking-widest italic line-through">
                               Sanctuary Sync Secure
                             </div>
-                            <div className="w-12 h-8 bg-white text-black font-bold font-mono text-xs flex items-center justify-center rounded">
+                            <div className="w-10 sm:w-12 h-6 sm:h-8 bg-white text-black font-bold font-mono text-[10px] sm:text-xs flex items-center justify-center rounded">
                               {cvv || 'CVV'}
                             </div>
                           </div>
-                          <p className="text-[6px] text-white/30 leading-normal uppercase tracking-widest">
+                          <p className="text-[5px] sm:text-[6px] text-white/30 leading-normal uppercase tracking-widest">
                             This custom digital access token is securely authorized by the RoomX transaction platform using the configured client PAYMENT_API_KEY environment credentials.
                           </p>
                         </div>
@@ -487,11 +487,11 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
 
 function BenefitItem({ icon, text }: { icon: React.ReactNode, text: string }) {
   return (
-    <div className="flex items-center gap-4 group">
-      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm border border-black/5 group-hover:scale-110 transition-transform">
+    <div className="flex sm:flex-col lg:flex-row items-center sm:items-start lg:items-center gap-3 sm:gap-2 lg:gap-4 group">
+      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white flex items-center justify-center shadow-sm border border-black/5 group-hover:scale-110 transition-transform shrink-0">
         {icon}
       </div>
-      <span className="text-sm font-bold text-[#0d2a21]/80 tracking-tight">{text}</span>
+      <span className="text-xs sm:text-sm font-bold text-[#0d2a21]/80 tracking-tight sm:leading-tight lg:leading-normal">{text}</span>
     </div>
   )
 }

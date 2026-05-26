@@ -8,7 +8,7 @@ import { blogPosts, BlogCard } from '@/components/Blogging'
 export default function KnowledgeHubPage() {
   return (
     <div className="min-h-screen bg-[#f5f6f2] font-sans pt-32 pb-24">
-      <div className="max-w-8xl mx-auto px-60">
+      <div className="max-w-8xl mx-auto px-6 sm:px-10 lg:px-20 xl:px-60">
         
         {/* Header */}
         <div className="mb-20">
@@ -16,8 +16,8 @@ export default function KnowledgeHubPage() {
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             <span className="text-[14px] font-bold">Go back</span>
           </Link>
-          <h1 className="text-[82px] font-bold text-[#0d2a21] tracking-tight leading-none mb-6">Knowledge Hub</h1>
-          <p className="text-[20px] text-[#0d2a21]/70 max-w-2xl leading-relaxed">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[82px] font-bold text-[#0d2a21] tracking-tight leading-none mb-6">Knowledge Hub</h1>
+          <p className="text-lg sm:text-[20px] text-[#0d2a21]/70 max-w-2xl leading-relaxed">
             Everything you need to know about private trading communities, 
             monetizing expertise, and scaling your trading room.
           </p>

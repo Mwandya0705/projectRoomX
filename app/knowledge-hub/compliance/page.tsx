@@ -18,15 +18,15 @@ export default function CompliancePage() {
         </div>
 
         {/* Hero */}
-        <div className="max-w-4xl mb-24">
+        <div className="max-w-4xl mb-16 sm:mb-24">
           <div className="flex items-center gap-3 mb-6">
-             <ShieldCheck className="w-6 h-6 text-emerald-500" />
-             <span className="text-xs font-black text-[#0d2a21]/40 uppercase tracking-[0.2em]">Trust & Security</span>
+             <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
+             <span className="text-[10px] sm:text-xs font-black text-[#0d2a21]/40 uppercase tracking-[0.2em]">Trust & Security</span>
           </div>
-          <h1 className="text-[72px] lg:text-[88px] font-bold text-[#0d2a21] leading-none tracking-tighter mb-8 font-nanum">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-bold text-[#0d2a21] leading-none tracking-tighter mb-8 font-nanum">
              Enterprise <br/><span className="text-[#10b981]">Compliance.</span>
           </h1>
-          <p className="text-xl text-[#0d2a21]/70 leading-relaxed font-satoshi">
+          <p className="text-lg sm:text-xl text-[#0d2a21]/70 leading-relaxed font-satoshi font-medium">
             Your data sovereignty is our priority. RoomX is built with the global 
             security standards and regulatory frameworks required to operate 
             high-trust environments across borders.
@@ -53,18 +53,18 @@ export default function CompliancePage() {
         </div>
 
         {/* Security Statement */}
-        <div className="bg-white/40 backdrop-blur-md rounded-[3.5rem] p-16 lg:p-24 border border-white/60">
-           <h2 className="text-4xl font-bold text-[#0d2a21] mb-8 font-nanum text-center">Our Security Commitment</h2>
-           <div className="max-w-3xl mx-auto space-y-6 text-lg text-[#0d2a21]/70 leading-relaxed font-satoshi text-center">
+        <div className="bg-white/40 backdrop-blur-md rounded-[2rem] sm:rounded-[3.5rem] p-8 sm:p-16 lg:p-24 border border-white/60">
+           <h2 className="text-3xl sm:text-4xl font-bold text-[#0d2a21] mb-6 sm:mb-8 font-nanum text-center">Our Security Commitment</h2>
+           <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 text-base sm:text-lg text-[#0d2a21]/70 leading-relaxed font-satoshi text-center">
               <p>
-                We understand that for experts and traders, intellectual property is the 
-                most valuable asset. That's why RoomX doesn't just provide a video 
-                connection—we provide a secure vault.
+                 We understand that for experts and traders, intellectual property is the 
+                 most valuable asset. That's why RoomX doesn't just provide a video 
+                 connection—we provide a secure vault.
               </p>
               <p>
-                From encrypted streaming tunnels to rigorous access control, every 
-                layer of our stack is designed to prevent unauthorized access and 
-                ensure your expertise is monetized on your terms.
+                 From encrypted streaming tunnels to rigorous access control, every 
+                 layer of our stack is designed to prevent unauthorized access and 
+                 ensure your expertise is monetized on your terms.
               </p>
            </div>
         </div>

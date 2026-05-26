@@ -150,7 +150,7 @@ export default function NavigationClient() {
       
       {/* Spacious Floating Capsule Layout */}
       <div 
-        className="fixed top-6 px-4 left-0 w-full z-[50] flex justify-center"
+        className="fixed top-3 sm:top-6 px-4 left-0 w-full z-[50] flex justify-center"
         onMouseLeave={handleLeave}
       >
         <div className="w-full max-w-[1320px] relative">
@@ -159,24 +159,24 @@ export default function NavigationClient() {
           <header 
             className="w-full bg-[#f5f6f2]/85 backdrop-blur-md rounded-full shadow-md border border-white/20 transition-all duration-300"
           >
-            <div className="flex items-center justify-between h-20 px-6 sm:px-10">
+            <div className="flex items-center justify-between h-14 sm:h-20 px-4 sm:px-6 lg:px-10">
               
               {/* Left: Brand logo */}
               <Link 
                 href="/" 
-                className="text-3xl font-nanum font-bold tracking-[-0.02em] shrink-0 hover:opacity-90 transition-opacity"
+                className="text-xl sm:text-3xl font-nanum font-bold tracking-[-0.02em] shrink-0 hover:opacity-90 transition-opacity"
               >
                 <span className="text-gray-900">Room</span><span className="text-emerald-500">X</span>
               </Link>
 
               {/* Center: Main horizontal menu (desktop only) */}
-              <div className="flex items-center gap-10 h-full">
-                <nav className="hidden md:flex items-center gap-4 font-sans">
+              <div className="flex items-center gap-4 lg:gap-6 xl:gap-10 h-full">
+                <nav className="hidden lg:flex items-center gap-2 xl:gap-4 font-sans">
                   {Object.keys(MEGA_MENUS).map((label) => (
                     <button 
                       key={label} 
                       onMouseEnter={() => handleEnter(label)} 
-                      className={`text-[13px] font-bold tracking-widest uppercase py-2.5 px-4 rounded-full transition-all duration-200 whitespace-nowrap ${
+                      className={`text-[11px] xl:text-[13px] font-bold tracking-widest uppercase py-2 px-3 xl:px-4 rounded-full transition-all duration-200 whitespace-nowrap ${
                         activeMenu === label 
                           ? 'bg-emerald-800/10 text-emerald-900' 
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'
@@ -188,26 +188,26 @@ export default function NavigationClient() {
                 </nav>
 
                 {/* Right: Authenticated state actions */}
-                <div className="flex items-center gap-5 shrink-0 font-sans">
+                <div className="flex items-center gap-3 sm:gap-5 shrink-0 font-sans">
                   {mounted && (
                     <>
                       {!user ? (
                         <>
-                          <Link href="/sign-in">
-                            <button className="text-xs font-bold uppercase tracking-widest text-gray-600 hover:text-emerald-800 transition-colors">
+                          <Link href="/sign-in" className="hidden sm:block">
+                            <button className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-600 hover:text-emerald-800 transition-colors">
                               Sign In
                             </button>
                           </Link>
-                          <Link href="/dashboard">
-                            <button className="px-6 py-3 bg-emerald-800 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-emerald-950 transition-all shadow-sm active:scale-95">
+                          <Link href="/dashboard" className="hidden sm:block">
+                            <button className="px-4 sm:px-6 py-2.5 sm:py-3 bg-emerald-800 text-white rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-widest hover:bg-emerald-950 transition-all shadow-sm active:scale-95">
                               Dashboard
                             </button>
                           </Link>
                         </>
                       ) : (
-                        <div className="flex items-center gap-4 relative">
+                        <div className="flex items-center gap-2 sm:gap-4 relative">
                           <Link href="/dashboard" className="hidden sm:block">
-                            <button className="px-6 py-3 bg-white/40 hover:bg-white/70 backdrop-blur-sm border border-emerald-800/10 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-widest transition-all shadow-sm active:scale-95">
+                            <button className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white/40 hover:bg-white/70 backdrop-blur-sm border border-emerald-800/10 text-emerald-800 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-all shadow-sm active:scale-95">
                               Dashboard
                             </button>
                           </Link>
@@ -245,10 +245,10 @@ export default function NavigationClient() {
                   )}
                 </div>
 
-                {/* Mobile hamburger — hidden on md+ */}
+                {/* Mobile hamburger — hidden on lg+ */}
                 <button
                   onClick={openMobileMenu}
-                  className="md:hidden flex flex-col gap-[5px] justify-center items-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-all"
+                  className="lg:hidden flex flex-col gap-[5px] justify-center items-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-all"
                   aria-label="Open menu"
                 >
                   <span className="w-5 h-[2px] bg-gray-800 rounded-full block" />

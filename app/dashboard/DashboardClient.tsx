@@ -74,13 +74,13 @@ const RoomConfigModal = ({ room, isOpen, onClose, onUpdate }: any) => {
       />
       
       {/* 🎭 Modal Content */}
-      <div className="relative w-full max-w-4xl bg-[#f5f6f2] rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+      <div className="relative w-full max-w-5xl bg-[#f5f6f2] rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500 max-h-[90vh] overflow-y-auto lg:overflow-hidden">
         <div className="grid lg:grid-cols-[1.5fr_1fr]">
           
           {/* LEFT: SETTINGS FORM */}
-          <div className="p-10 lg:p-14 space-y-10 max-h-[80vh] overflow-y-auto">
+          <div className="p-6 md:p-10 lg:p-14 space-y-8 md:space-y-10 lg:max-h-[85vh] lg:overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-4xl font-bold font-nanum text-[#0d2a21] tracking-tight">Sanctuary <br/>Configuration</h2>
+              <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-bold font-nanum text-[#0d2a21] tracking-tight leading-none">Sanctuary <br/>Configuration</h2>
               <button onClick={onClose} className="p-3 bg-white rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
                 <X className="w-5 h-5" />
               </button>
@@ -123,7 +123,7 @@ const RoomConfigModal = ({ room, isOpen, onClose, onUpdate }: any) => {
           </div>
 
           {/* RIGHT: MONETIZATION & ACTION */}
-          <div className="bg-[#0d2a21] p-10 lg:p-14 text-white space-y-10 flex flex-col">
+          <div className="bg-[#0d2a21] p-6 md:p-10 lg:p-14 text-white space-y-8 md:space-y-10 flex flex-col lg:max-h-[85vh] lg:overflow-y-auto">
             <div className="space-y-8 flex-1">
               <div className="space-y-6">
                 <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] block">Monetization Engine</label>
@@ -266,12 +266,12 @@ export default function DashboardClient({
         />
       )}
 
-      <main className="max-w-7xl mx-auto px-6 lg:px-12 py-12">
+      <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 3xl:px-24 py-12">
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 lg:mb-12 gap-6">
           <div>
-            <h1 className="text-[42px] font-bold text-[#0d2a21] leading-none tracking-tighter font-nanum mb-3">
+            <h1 className="text-[clamp(2rem,4vw,3.5rem)] font-bold text-[#0d2a21] leading-[1.05] tracking-tighter font-nanum mb-3">
               Creator Control Center
             </h1>
             <p className="text-[#0d2a21]/60 font-medium">Welcome back, {dbUser?.name || 'Explorer'}. Your monetization era is in full swing.</p>
@@ -291,20 +291,20 @@ export default function DashboardClient({
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
            <StatCard icon={<Users className="text-blue-600" />} label="Total Members" value={totalMembers.toString()} trend="+12%" />
            <StatCard icon={<BarChart3 className="text-emerald-600" />} label="Monthly Rev" value="$14,240" trend="+8.4%" />
            <StatCard icon={<Activity className="text-orange-600" />} label="Engagement" value="94%" trend="+2.1%" />
            <StatCard icon={<Layers className="text-purple-600" />} label="Active Rooms" value={localRooms.length.toString()} trend="0%" />
         </div>
 
-        <div className="grid lg:grid-cols-[2.2fr_1.2fr] gap-10">
+        <div className="grid lg:grid-cols-[2.2fr_1.2fr] gap-6 lg:gap-10 3xl:gap-16">
            
-           <div className="space-y-10">
+           <div className="space-y-8 lg:space-y-10">
               {localRooms.length > 0 ? (
                 <>
                   {currentRooms.map((room: any) => (
-                    <div key={room.id} className={`bg-[#0d2a21] rounded-[3.5rem] p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl group mb-8 last:mb-0 transition-opacity ${deletingId === room.id ? 'opacity-50 grayscale' : ''}`}>
+                    <div key={room.id} className={`bg-[#0d2a21] rounded-[2rem] md:rounded-[3.5rem] p-8 sm:p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl group mb-8 last:mb-0 transition-opacity ${deletingId === room.id ? 'opacity-50 grayscale' : ''}`}>
                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 blur-[100px] rounded-full" />
                        
                        <div className="relative z-10">
@@ -335,10 +335,10 @@ export default function DashboardClient({
                              </div>
                           </div>
 
-                          <h2 className="text-[42px] lg:text-[52px] font-bold font-nanum leading-none mb-6 tracking-tight">
+                          <h2 className="text-[clamp(2rem,4vw,3.5rem)] font-bold font-nanum leading-none mb-6 tracking-tight">
                              {room.title}
                           </h2>
-                          <p className="text-white/60 text-lg leading-relaxed mb-10 max-w-xl font-satoshi">
+                          <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-10 max-w-xl font-satoshi">
                              {room.description || "Your private sanctuary for high-value expertise. Manage your subscribers and broadcast in 4K clarity."}
                           </p>
 
@@ -474,7 +474,7 @@ export default function DashboardClient({
 
 function StatCard({ icon, label, value, trend }: { icon: React.ReactNode, label: string, value: string, trend: string }) {
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-[#0d2a21]/5 shadow-sm hover:shadow-md transition-all group">
+    <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-[#0d2a21]/5 shadow-sm hover:shadow-md transition-all group">
        <div className="flex justify-between items-start mb-6">
           <div className="w-12 h-12 rounded-2xl bg-[#0d2a21]/5 flex items-center justify-center group-hover:scale-110 transition-transform">{icon}</div>
           <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full uppercase tracking-widest">{trend}</span>
