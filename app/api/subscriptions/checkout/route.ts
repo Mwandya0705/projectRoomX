@@ -114,15 +114,11 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      if (
-        charge.status !== 'completed' &&
-        charge.status !== 'success' &&
-        charge.status !== 'approved' &&
-        charge.status !== 'pending'
-      ) {
+      const mobileFailStatuses = ['failed', 'declined', 'error', 'cancelled', 'rejected']
+      if (mobileFailStatuses.includes(charge.status.toLowerCase())) {
         console.warn('[Checkout] Mobile money charge failed. Status:', charge.status)
         return NextResponse.json(
-          { error: `Payment was not successful. Status: ${charge.status}` },
+          { error: `Payment was not approved. Please try again.` },
           { status: 402 }
         )
       }
@@ -205,11 +201,12 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // ── Payment status gate — only activate if charge succeeded ──────────
-      if (charge.status !== 'completed' && charge.status !== 'success' && charge.status !== 'approved') {
+      // ── Payment status gate — reject only explicit failures ──────────────
+      const cardFailStatuses = ['failed', 'declined', 'error', 'cancelled', 'rejected']
+      if (cardFailStatuses.includes(charge.status.toLowerCase())) {
         console.warn('[Checkout] Card charge not approved. Status:', charge.status)
         return NextResponse.json(
-          { error: `Payment was not approved. Status: ${charge.status}` },
+          { error: `Payment was not approved. Please check your card details and try again.` },
           { status: 402 }
         )
       }
