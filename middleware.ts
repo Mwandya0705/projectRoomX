@@ -14,8 +14,9 @@ const publicRoutes = [
   '/sign-in',
   '/sign-up',
   '/auth',
-  '/api/webhooks/clerk',
   '/api/webhooks/clickpesa',
+  '/api/webhooks/resend',
+  '/api/webhooks/payment',
 ]
 
 export default async function middleware(request: NextRequest) {

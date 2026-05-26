@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserByAuthId } from '@/lib/utils/auth'
 import { getUserRooms, getUserSubscriptions } from '@/lib/utils/access-control'
+import { sendWelcomeEmail } from '@/lib/email/server'
 import DashboardClient from './DashboardClient'
 
 export default async function DashboardPage() {
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
           email: user.email!,
           name: user.user_metadata.full_name || user.user_metadata.name || null,
           image_url: user.user_metadata.avatar_url || null,
-          clerk_id: null, // no longer used — run: ALTER TABLE users ALTER COLUMN clerk_id DROP NOT NULL;
+          clerk_id: user.id, // fallback to satisfy clerk_id UNIQUE NOT NULL if migration hasn't run
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -36,6 +37,12 @@ export default async function DashboardPage() {
         .single()
 
       if (upsertError) throw upsertError
+
+      // Send welcome email since they are a newly synced user
+      await sendWelcomeEmail({
+        to: user.email!,
+        name: user.user_metadata.full_name || user.user_metadata.name || '',
+      })
 
       dbUser = {
         id: newUser.id,
