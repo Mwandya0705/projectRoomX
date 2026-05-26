@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { enhancePrompt } from '@/lib/ai/prompt-enhancer'

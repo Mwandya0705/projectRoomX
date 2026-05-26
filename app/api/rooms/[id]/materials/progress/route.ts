@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { getUserByAuthId } from '@/lib/utils/auth'
 
 export async function POST(

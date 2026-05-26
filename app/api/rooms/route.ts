@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { getUserByAuthId } from '@/lib/utils/auth'
 import { z } from 'zod'
