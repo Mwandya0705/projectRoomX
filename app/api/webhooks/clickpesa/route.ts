@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { verifyPayment } from '@/lib/clickpesa/server'
+import { verifyPayment } from '@/lib/payment/server'
 
 /**
  * POST /api/webhooks/clickpesa
@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
     
     // Click Pesa webhook payload structure may vary
     // Adjust based on their actual webhook format
-    // Try multiple possible field names
-    const paymentId = body.paymentId || body.payment_id || body.id || body.transactionId
-    
+    // ClickPesa webhook uses orderReference as the identifier
+    const paymentId = body.orderReference || body.order_reference || body.paymentId || body.payment_id || body.id || body.transactionId
+
     if (!paymentId) {
       console.error('[ClickPesa Webhook] Missing paymentId in webhook body')
       return NextResponse.json({ error: 'Missing paymentId' }, { status: 400 })
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
     console.log('[ClickPesa Webhook] Processing payment:', { paymentId, userId, roomId, status: payment.status })
 
-    // Handle successful payment
-    if (payment.status === 'completed' || payment.status === 'success') {
+    // Handle successful payment (verifyPayment normalizes SUCCESS/SETTLED → 'success')
+    if (payment.status === 'success') {
       // Check if subscription already exists
       const { data: existingSubscription } = await supabase
         .from('subscriptions')

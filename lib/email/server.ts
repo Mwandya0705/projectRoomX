@@ -110,6 +110,128 @@ export async function sendWelcomeEmail(params: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Confirmation Email — sent instead of Supabase's default (better deliverability)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendConfirmationEmail(params: {
+  to: string
+  name?: string
+  confirmLink: string
+}): Promise<void> {
+  const resend = getResend()
+  if (!resend) return
+
+  const displayName = params.name || 'Creator'
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to: params.to,
+      subject: 'Confirm your RoomX account',
+      html: `
+        <div style="${styles.wrapper}">
+          <div style="${styles.header}">
+            <p style="${styles.subheading}">One Last Step</p>
+            <h1 style="${styles.heading}">Confirm your email.</h1>
+          </div>
+          <div style="${styles.body}">
+            <p style="${styles.text}">
+              Hi ${displayName}, thanks for joining RoomX. Click the button below to verify
+              your email address and activate your account.
+            </p>
+
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${params.confirmLink}" style="${styles.button}">
+                Confirm Email Address →
+              </a>
+            </div>
+
+            <p style="${styles.text}" >
+              Or paste this link in your browser:<br/>
+              <a href="${params.confirmLink}" style="color: #10b981; font-size: 12px; word-break: break-all;">${params.confirmLink}</a>
+            </p>
+
+            <p style="${styles.footer}">
+              This link expires in 24 hours. If you didn't create a RoomX account, ignore this email.<br/>
+              RoomX — The Infrastructure of Influence.
+            </p>
+          </div>
+        </div>
+      `,
+    })
+
+    if (error) {
+      console.error('[Email] Confirmation email failed:', error)
+    } else {
+      console.log(`[Email] ✅ Confirmation email sent to ${params.to}`)
+    }
+  } catch (err) {
+    console.error('[Email] Confirmation email error:', err)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Password Reset Email
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendPasswordResetEmail(params: {
+  to: string
+  name?: string
+  resetLink: string
+}): Promise<void> {
+  const resend = getResend()
+  if (!resend) return
+
+  const displayName = params.name || 'Creator'
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to: params.to,
+      subject: 'Reset your RoomX password',
+      html: `
+        <div style="${styles.wrapper}">
+          <div style="${styles.header}">
+            <p style="${styles.subheading}">Password Recovery</p>
+            <h1 style="${styles.heading}">Reset your password.</h1>
+          </div>
+          <div style="${styles.body}">
+            <p style="${styles.text}">
+              Hi ${displayName}, we received a request to reset the password for your RoomX account.
+              Click the button below to choose a new password.
+            </p>
+
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${params.resetLink}" style="${styles.button}">
+                Reset Password →
+              </a>
+            </div>
+
+            <div style="${styles.card}">
+              <p style="margin: 0; font-size: 13px; color: #6b7280;">
+                ⏱ This link expires in <strong>1 hour</strong>.<br/>
+                If you didn't request a password reset, you can safely ignore this email.
+                Your password will not change.
+              </p>
+            </div>
+
+            <p style="${styles.footer}">
+              RoomX — The Infrastructure of Influence.
+            </p>
+          </div>
+        </div>
+      `,
+    })
+
+    if (error) {
+      console.error('[Email] Password reset email failed:', error)
+    } else {
+      console.log(`[Email] ✅ Password reset email sent to ${params.to}`)
+    }
+  } catch (err) {
+    console.error('[Email] Password reset email error:', err)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Invitation Email — sent when a creator invites someone to a room
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sendInvitationEmail(params: {

@@ -39,7 +39,7 @@ export default function FooterDetails() {
                 href="/" 
                 className="text-4xl font-nanum font-bold tracking-[-0.02em] hover:opacity-90 transition-opacity"
               >
-                <span className="text-white">Room</span><span className="text-[#ff7759]">X</span>
+                <span className="text-white">Room</span><span className="text-emerald-500">X</span>
               </Link>
               <p className="text-base sm:text-lg text-white/70 mt-5 leading-relaxed max-w-[360px]">
                 Interactive private spaces for creators, traders, and communities to run premium live studios.

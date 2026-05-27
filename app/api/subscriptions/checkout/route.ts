@@ -100,19 +100,25 @@ export async function POST(request: NextRequest) {
 
       console.log('[Checkout] Mobile money charge for room:', roomId, '| amount:', amount, paymentCurrency, '| provider:', provider)
 
-      const charge = await chargeMobileMoney({
-        amount,
-        currency: paymentCurrency,
-        description: `Monthly subscription to ${room.title}`,
-        phoneNumber,
-        provider,
-        customerEmail: user.email,
-        metadata: {
-          userId: String(user.id),
-          roomId: String(room.id),
-          type: 'subscription',
-        },
-      })
+      let charge: { paymentId: string; status: string }
+      try {
+        charge = await chargeMobileMoney({
+          amount,
+          currency: paymentCurrency,
+          description: `Monthly subscription to ${room.title}`,
+          phoneNumber,
+          provider,
+          customerEmail: user.email,
+          metadata: {
+            userId: String(user.id),
+            roomId: String(room.id),
+            type: 'subscription',
+          },
+        })
+      } catch (err: any) {
+        console.error('[Checkout] USSD push rejected by ClickPesa:', err.message)
+        return NextResponse.json({ error: err.message || 'Payment gateway rejected the request.' }, { status: 402 })
+      }
 
       const mobileFailStatuses = ['failed', 'declined', 'error', 'cancelled', 'rejected']
       if (mobileFailStatuses.includes(charge.status.toLowerCase())) {
@@ -185,21 +191,27 @@ export async function POST(request: NextRequest) {
       console.log('[Checkout] Charging card for room:', roomId, '| amount:', amount, paymentCurrency)
 
       // Charge the card via real payment API
-      const charge = await chargeCard({
-        amount,
-        currency: paymentCurrency,
-        description: `Monthly subscription to ${room.title}`,
-        cardholderName,
-        cardNumber,
-        expiryDate,
-        cvv,
-        customerEmail: user.email,
-        metadata: {
-          userId: String(user.id),
-          roomId: String(room.id),
-          type: 'subscription',
-        },
-      })
+      let charge: { paymentId: string; status: string }
+      try {
+        charge = await chargeCard({
+          amount,
+          currency: paymentCurrency,
+          description: `Monthly subscription to ${room.title}`,
+          cardholderName,
+          cardNumber,
+          expiryDate,
+          cvv,
+          customerEmail: user.email,
+          metadata: {
+            userId: String(user.id),
+            roomId: String(room.id),
+            type: 'subscription',
+          },
+        })
+      } catch (err: any) {
+        console.error('[Checkout] Card charge rejected by ClickPesa:', err.message)
+        return NextResponse.json({ error: err.message || 'Card payment was declined.' }, { status: 402 })
+      }
 
       // ── Payment status gate — reject only explicit failures ──────────────
       const cardFailStatuses = ['failed', 'declined', 'error', 'cancelled', 'rejected']

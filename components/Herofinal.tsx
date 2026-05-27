@@ -17,6 +17,10 @@ export default function HeroFinal() {
   const heroRef = useRef<HTMLDivElement>(null)
   const lineLeftRef = useRef<HTMLSpanElement>(null)
   const lineRightRef = useRef<HTMLSpanElement>(null)
+  const paragraphRef = useRef<HTMLParagraphElement>(null)
+  const ctaRef = useRef<HTMLDivElement>(null)
+  const card1Ref = useRef<HTMLDivElement>(null)
+  const card2Ref = useRef<HTMLDivElement>(null)
 
 
   useEffect(() => {
@@ -30,6 +34,30 @@ export default function HeroFinal() {
   useGSAP(
     () => {
       if (!heroRef.current) return
+
+      // ── ENTRY REVEAL ─────────────────────────────────────────────────────
+      gsap.set(lineLeftRef.current, { clipPath: 'inset(0 100% 0 0)' })
+      gsap.set(lineRightRef.current, { clipPath: 'inset(0 100% 0 0)' })
+      gsap.set(paragraphRef.current, { y: 40, opacity: 0 })
+      gsap.set(ctaRef.current, { y: 30, opacity: 0 })
+      gsap.set([card1Ref.current, card2Ref.current], { y: 80, opacity: 0, scale: 0.96 })
+
+      const entryTl = gsap.timeline({
+        delay: 0.25,
+        defaults: { ease: 'power4.out' },
+        onComplete: () => {
+          gsap.set([lineLeftRef.current, lineRightRef.current], { clearProps: 'clipPath' })
+        },
+      })
+      entryTl
+        .to(lineLeftRef.current, { clipPath: 'inset(0 0% 0 0)', duration: 1.2 })
+        .to(lineRightRef.current, { clipPath: 'inset(0 0% 0 0)', duration: 1.2 }, '-=0.85')
+        .to(paragraphRef.current, { y: 0, opacity: 1, duration: 0.8 }, '-=0.6')
+        .to(ctaRef.current, { y: 0, opacity: 1, duration: 0.7, ease: 'back.out(2)' }, '-=0.5')
+        .to(card1Ref.current, { y: 0, opacity: 1, scale: 1, duration: 1.1 }, '-=0.3')
+        .to(card2Ref.current, { y: 0, opacity: 1, scale: 1, duration: 1.1 }, '-=0.9')
+      // ─────────────────────────────────────────────────────────────────────
+
       let mm = gsap.matchMedia()
 
       mm.add("(min-width: 768px)", () => {
@@ -92,11 +120,11 @@ export default function HeroFinal() {
           </span>
         </h1>
 
-        <p className="mt-10 text-center text-gray-700/90 max-w-2xl text-[14px] sm:text-[14px] md:text-[14px] lg:text-[22px] leading-relaxed px-4 font-sans tracking-wide font-medium">
+        <p ref={paragraphRef} className="mt-10 text-center text-gray-700/90 max-w-2xl text-[14px] sm:text-[14px] md:text-[14px] lg:text-[22px] leading-relaxed px-4 font-sans tracking-wide font-medium">
           A complete, AI-powered solution helping creators improve engagement and streamline their live workflows.
         </p>
 
-        <div className="mt-10">
+        <div ref={ctaRef} className="mt-10">
           {!user ? (
             <Link href="/book-a-demo" className="inline-block px-5 py-2.5 sm:px-8 sm:py-3.5 rounded-full bg-emerald-950 text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider hover:bg-[#003c33] transition-all shadow-md hover:scale-105 active:scale-95">
                Get a demo
@@ -116,6 +144,7 @@ export default function HeroFinal() {
         <div className="grid gap-6 xl:grid-cols-2 w-full max-w-[1850px] mx-auto px-4 lg:px-10">
 
           <div
+            ref={card1Ref}
             className="relative overflow-hidden rounded-[2.5rem] bg-[#0c0c0e] pt-6 pb-6 px-4 sm:px-10 lg:px-12 min-h-[600px] xl:min-h-[750px] flex flex-col justify-start border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_40px_rgba(239,68,68,0.08),inset_0_1px_2px_rgba(255,255,255,0.05)] will-change-transform group/card"
           >
             {/* Background image covering card */}
@@ -186,6 +215,7 @@ export default function HeroFinal() {
           </div>
 
           <div
+            ref={card2Ref}
             className="relative overflow-hidden rounded-[2.5rem] bg-[#0a1215] pt-6 pb-6 px-4 sm:px-10 lg:px-12 min-h-[600px] xl:min-h-[750px] flex flex-col justify-start border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_40px_rgba(16,185,129,0.08),inset_0_1px_2px_rgba(255,255,255,0.05)] will-change-transform group/card"
           >
             {/* Background image covering card */}

@@ -17,6 +17,11 @@ const publicRoutes = [
   '/api/webhooks/clickpesa',
   '/api/webhooks/resend',
   '/api/webhooks/payment',
+  '/api/payments/debug-ussd',
+  '/api/auth/signup',
+  '/api/auth/send-reset-email',
+  '/auth/reset-password',
+  '/auth/auth-code-error',
 ]
 
 export default async function middleware(request: NextRequest) {

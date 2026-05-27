@@ -60,7 +60,17 @@ export default function NavigationClient() {
   const overlayRef = useRef<HTMLDivElement | null>(null)
   const mobileDrawerRef = useRef<HTMLDivElement | null>(null)
   const isOpenRef = useRef(false)
-  const { contextSafe } = useGSAP()
+  const headerRef = useRef<HTMLElement>(null)
+  const { contextSafe } = useGSAP(() => {
+    if (!headerRef.current) return
+    gsap.from(headerRef.current, {
+      y: -90,
+      opacity: 0,
+      duration: 1.1,
+      ease: 'power4.out',
+      delay: 0.05,
+    })
+  })
 
   useEffect(() => {
     if (shouldHide) return
@@ -156,7 +166,8 @@ export default function NavigationClient() {
         <div className="w-full max-w-[1320px] relative">
           
           {/* Header Navigation Bar */}
-          <header 
+          <header
+            ref={headerRef}
             className="w-full bg-[#f5f6f2]/85 backdrop-blur-md rounded-full shadow-md border border-white/20 transition-all duration-300"
           >
             <div className="flex items-center justify-between h-14 sm:h-20 px-4 sm:px-6 lg:px-10">
