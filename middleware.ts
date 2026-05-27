@@ -20,6 +20,7 @@ const publicRoutes = [
   '/api/payments/debug-ussd',
   '/api/auth/signup',
   '/api/auth/send-reset-email',
+  '/api/auth/update-password',
   '/auth/reset-password',
   '/auth/auth-code-error',
 ]

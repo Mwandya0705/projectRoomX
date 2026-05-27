@@ -2,14 +2,17 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserByAuthId } from '@/lib/utils/auth'
+import { verifyPayment } from '@/lib/payment/server'
 
 /**
  * GET /api/subscriptions/status?roomId=xxx
  *
- * Lightweight endpoint the UI polls after a USSD push is sent.
- * Returns the subscription status for the authenticated user + room.
- * The webhook at /api/webhooks/clickpesa updates the DB when ClickPesa confirms.
+ * Polls subscription status for the authenticated user + room.
+ * If status is pending, actively verifies with ClickPesa and
+ * self-heals to active when payment is confirmed — so a missed or
+ * delayed webhook never leaves the user stuck on the countdown.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -32,12 +35,58 @@ export async function GET(request: NextRequest) {
 
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('status')
+      .select('id, status, stripe_subscription_id')
       .eq('subscriber_id', user.id)
       .eq('room_id', roomId)
       .maybeSingle()
 
-    return NextResponse.json({ status: sub?.status ?? 'none' })
+    if (!sub) {
+      return NextResponse.json({ status: 'none' })
+    }
+
+    // Already active — nothing more to do
+    if (sub.status === 'active') {
+      return NextResponse.json({ status: 'active' })
+    }
+
+    // Self-heal: if pending, verify directly with ClickPesa
+    // Covers cases where the webhook was missed, delayed, or rejected
+    if (sub.status === 'pending' && sub.stripe_subscription_id) {
+      try {
+        const payment = await verifyPayment(sub.stripe_subscription_id)
+        console.log('[SubscriptionStatus] Self-heal check for', sub.stripe_subscription_id, '→', payment.status)
+
+        if (payment.status === 'success') {
+          const adminSupabase = createAdminClient()
+          await adminSupabase
+            .from('subscriptions')
+            .update({
+              status: 'active',
+              current_period_start: new Date().toISOString(),
+              current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              cancel_at_period_end: false,
+            })
+            .eq('id', sub.id)
+
+          console.log('[SubscriptionStatus] Self-healed subscription to active:', sub.id)
+          return NextResponse.json({ status: 'active' })
+        }
+
+        if (payment.status === 'failed') {
+          const adminSupabase = createAdminClient()
+          await adminSupabase
+            .from('subscriptions')
+            .update({ status: 'cancelled' })
+            .eq('id', sub.id)
+          return NextResponse.json({ status: 'cancelled' })
+        }
+      } catch (verifyErr) {
+        // ClickPesa unreachable — return current DB status and let polling retry
+        console.warn('[SubscriptionStatus] verifyPayment error (will retry):', verifyErr)
+      }
+    }
+
+    return NextResponse.json({ status: sub.status ?? 'none' })
   } catch (err) {
     console.error('[SubscriptionStatus]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

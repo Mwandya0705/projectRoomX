@@ -65,13 +65,29 @@ function ResetPasswordForm() {
 
     setLoading(true)
     try {
-      const { error: updateErr } = await supabase.auth.updateUser({ password })
-      if (updateErr) throw updateErr
+      // Get the current access token to pass to the server.
+      // The server-side route uses admin to update the password, which bypasses
+      // Supabase's "must be a recovery session" restriction and avoids client-side
+      // PKCE code-verifier issues that cause updateUser() to hang.
+      const { data: { session } } = await supabase.auth.getSession()
+
+      const res = await fetch('/api/auth/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password,
+          accessToken: session?.access_token ?? undefined,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to update password.')
+
       setPageState('success')
-      // Sign out the recovery session so the user logs in fresh
       await supabase.auth.signOut()
       setTimeout(() => router.push('/sign-in'), 2500)
     } catch (err) {
+      console.error('[ResetPassword] update failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to update password.')
     } finally {
       setLoading(false)
