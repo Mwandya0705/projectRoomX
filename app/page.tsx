@@ -10,7 +10,9 @@ import CrossingWord from '@/components/CrossingWord'
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#f5f6f2]">
-       <CrossingWord />
+      <div className="hidden lg:block">
+        <CrossingWord />
+      </div>
       <HeroFinal />
       {/* ── HERO: full-viewport, Pixis-style ── */}
       {/* <Hero /> */}
