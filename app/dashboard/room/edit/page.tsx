@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserByAuthId } from '@/lib/utils/auth'
 import { getUserRoom } from '@/lib/utils/access-control'
-import NavigationClient from '@/components/NavigationClient'
 import EditRoomForm from '@/components/EditRoomForm'
 
 export default async function EditRoomPage() {
@@ -78,8 +77,6 @@ export default async function EditRoomPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 ">
-      <NavigationClient />
-
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 ">
         <div className="mb-8 ">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Edit Room</h1>

@@ -1,6 +1,5 @@
 import { Link } from 'next-view-transitions'
 import { createClient } from '@/lib/supabase/server'
-import NavigationClient from '@/components/NavigationClient'
 import { notFound } from 'next/navigation'
 
 export default async function CreatorPage({ params }: { params: { id: string } }) {
@@ -72,8 +71,6 @@ export default async function CreatorPage({ params }: { params: { id: string } }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 pt-24">
-      <NavigationClient />
-
       <main className="max-w-7xl mx-auto px-4 pt-30 sm:px-6 lg:px-8 py-8">
         <div className="mb-16 flex flex-col items-center text-center">
           {creator.image_url ? (

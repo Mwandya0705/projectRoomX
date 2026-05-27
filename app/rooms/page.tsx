@@ -1,6 +1,5 @@
 import { Link } from 'next-view-transitions'
 import { createClient } from '@/lib/supabase/server'
-import NavigationClient from '@/components/NavigationClient'
 
 export default async function RoomsPage() {
   const supabase = createClient()
@@ -58,8 +57,6 @@ export default async function RoomsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 pt-24">
-      <NavigationClient />
-
       <main className="max-w-7xl mx-auto px-4 pt-30 sm:px-6 lg:px-8 py-8">
         <div className="mb-12 flex justify-between items-end">
           <div>

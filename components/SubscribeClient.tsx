@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   Loader2
 } from 'lucide-react'
-import NavigationClient from '@/components/NavigationClient'
 
 interface SubscribeClientProps {
   room: {
@@ -245,8 +244,6 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
 
   return (
     <div className="min-h-screen bg-[#f5f6f2] font-sans overflow-x-hidden">
-      <NavigationClient />
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 pt-28 sm:pt-32 pb-24">
         <div className="grid lg:grid-cols-[1.2fr_1fr] gap-10 lg:gap-20 items-center">
           
