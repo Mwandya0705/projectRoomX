@@ -5,14 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Lock, ArrowRight, Loader2, Info, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 type PageState = 'loading' | 'ready' | 'success' | 'expired'
 
 function ResetPasswordForm() {
-  const router      = useRouter()
-  const params      = useSearchParams()
-  const supabase    = createClient()
+  const router   = useRouter()
+  const supabase = createClient()
 
   const [pageState,    setPageState]    = useState<PageState>('loading')
   const [password,     setPassword]     = useState('')
@@ -23,34 +22,32 @@ function ResetPasswordForm() {
   const [error,        setError]        = useState<string | null>(null)
 
   useEffect(() => {
-    const init = async () => {
-      // Supabase appends ?code=xxx to the redirectTo URL (PKCE flow)
-      const code = params.get('code')
-
-      if (code) {
-        // Exchange the one-time code for a session
-        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
-        if (exchangeErr) {
-          console.error('[ResetPassword] Code exchange failed:', exchangeErr.message)
-          setPageState('expired')
-          return
-        }
-        // Clean the code out of the URL so it can't be replayed
-        window.history.replaceState({}, '', '/auth/reset-password')
+    // The browser client has detectSessionInUrl:true so it auto-exchanges
+    // the ?code= param and fires onAuthStateChange with PASSWORD_RECOVERY.
+    // We subscribe to that event instead of manually calling exchangeCodeForSession.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
         setPageState('ready')
-        return
       }
+    })
 
-      // No code — check if a session already exists (e.g. user refreshed the page)
-      const { data: { session } } = await supabase.auth.getSession()
+    // Edge case: user refreshed the page after the code was already exchanged
+    // — a regular SIGNED_IN session will exist, treat it as ready.
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setPageState('ready')
-      } else {
-        setPageState('expired')
       }
-    }
+    })
 
-    init()
+    // If nothing fires within 5 s (bad/expired link) show the expired state.
+    const timeout = setTimeout(() => {
+      setPageState(prev => (prev === 'loading' ? 'expired' : prev))
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,6 +68,7 @@ function ResetPasswordForm() {
       const { error: updateErr } = await supabase.auth.updateUser({ password })
       if (updateErr) throw updateErr
       setPageState('success')
+      // Sign out the recovery session so the user logs in fresh
       await supabase.auth.signOut()
       setTimeout(() => router.push('/sign-in'), 2500)
     } catch (err) {
@@ -188,7 +186,8 @@ function ResetPasswordForm() {
               className="w-full py-3.5 bg-[#0d2a21] text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-[#184638] transition-all active:scale-95 disabled:opacity-50">
               {loading
                 ? <Loader2 className="w-5 h-5 animate-spin" />
-                : <><span>Update Password</span><ArrowRight className="w-4 h-4" /></>}
+                : <><span>Update Password</span><ArrowRight className="w-4 h-4" /></>
+              }
             </button>
           </form>
         </motion.div>

@@ -30,9 +30,13 @@ interface SubscribeClientProps {
 
 export default function SubscribeClient({ room, user }: SubscribeClientProps) {
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState<'summary' | 'payment' | 'success'>('summary')
+  const [step, setStep] = useState<'summary' | 'payment' | 'waiting' | 'success' | 'timeout'>('summary')
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingMessage, setLoadingMessage] = useState('Initiating secure transaction...')
+  const [waitingPaymentId, setWaitingPaymentId] = useState('')
+  const [waitSecondsLeft, setWaitSecondsLeft] = useState(180) // 3-minute window
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   
   // Payment Method state
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile'>('card')
@@ -90,6 +94,47 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
     if (value.length > 3) value = value.slice(0, 3)
     setCvv(value)
   }
+
+  // Start polling subscription status after USSD push
+  const startPolling = (paymentId: string) => {
+    setWaitingPaymentId(paymentId)
+    setWaitSecondsLeft(180)
+    setStep('waiting')
+
+    // Countdown timer
+    countdownRef.current = setInterval(() => {
+      setWaitSecondsLeft(s => {
+        if (s <= 1) {
+          stopPolling()
+          setStep('timeout')
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
+
+    // Poll subscription status every 5 s
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/subscriptions/status?roomId=${room.id}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.status === 'active') {
+          stopPolling()
+          setStep('success')
+          setTimeout(() => { window.location.href = `/room/${room.id}` }, 3500)
+        }
+      } catch { /* network hiccup — keep polling */ }
+    }, 5000)
+  }
+
+  const stopPolling = () => {
+    if (pollRef.current)     { clearInterval(pollRef.current);     pollRef.current = null }
+    if (countdownRef.current){ clearInterval(countdownRef.current); countdownRef.current = null }
+  }
+
+  // Cleanup on unmount
+  useEffect(() => () => stopPolling(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Loading text micro-animation
   useEffect(() => {
@@ -177,14 +222,18 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
         throw new Error(data.error || 'Payment authorization failed')
       }
 
-      // Dynamic unlock success state
       setLoading(false)
-      setStep('success')
 
-      // Auto-redirect to the room after success animation
-      setTimeout(() => {
-        window.location.href = data.redirectUrl || `/room/${room.id}`
-      }, 3500)
+      if (paymentMethod === 'mobile') {
+        // USSD push sent — wait for the user to enter their PIN
+        startPolling(data.paymentId || '')
+      } else {
+        // Card payment confirmed immediately
+        setStep('success')
+        setTimeout(() => {
+          window.location.href = data.redirectUrl || `/room/${room.id}`
+        }, 3500)
+      }
 
     } catch (error: any) {
       console.error('[SubscribeClient] Payment failed:', error)
@@ -545,7 +594,92 @@ export default function SubscribeClient({ room, user }: SubscribeClientProps) {
                 </div>
               )}
 
-              {/* STEP 3: Premium Unlock Success State */}
+              {/* STEP 3: Waiting for USSD PIN confirmation */}
+              {step === 'waiting' && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-7">
+                  {/* Pulsing phone icon */}
+                  <div className="relative w-20 h-20">
+                    <div className="absolute inset-0 bg-[#10b981]/20 rounded-full animate-ping" />
+                    <div className="absolute inset-2 bg-[#10b981]/30 rounded-full animate-ping animation-delay-150" />
+                    <div className="relative w-full h-full bg-[#0d2a21] border-2 border-[#10b981]/60 rounded-full flex items-center justify-center shadow-xl">
+                      <svg className="w-8 h-8 text-[#10b981]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 20.25h3" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-black font-nanum tracking-tight text-white">
+                      Check your phone.
+                    </h3>
+                    <p className="text-white/50 text-sm leading-relaxed max-w-[240px] mx-auto">
+                      A USSD prompt has been sent to <span className="text-white font-bold">+255 {phoneNumber}</span>. Enter your PIN to confirm payment.
+                    </p>
+                  </div>
+
+                  {/* Provider badge */}
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2">
+                    <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                      {provider === 'vodacom' ? 'M-Pesa' : provider === 'tigo' ? 'Tigo Pesa' : provider === 'airtel' ? 'Airtel Money' : 'Halopesa'}
+                    </span>
+                  </div>
+
+                  {/* Countdown */}
+                  <div className="w-full space-y-2">
+                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/30">
+                      <span>Waiting for confirmation</span>
+                      <span className={waitSecondsLeft < 30 ? 'text-red-400' : 'text-white/40'}>
+                        {Math.floor(waitSecondsLeft / 60)}:{String(waitSecondsLeft % 60).padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#10b981] rounded-full transition-all duration-1000"
+                        style={{ width: `${(waitSecondsLeft / 180) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-white/20 uppercase tracking-widest animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Listening for payment…
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3b: Payment timed out */}
+              {step === 'timeout' && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+                  <div className="w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black font-nanum tracking-tight text-yellow-400">Payment timed out.</h3>
+                    <p className="text-white/40 text-xs leading-relaxed max-w-[260px] mx-auto">
+                      No confirmation received in 3 minutes. If you already entered your PIN, your access will be activated automatically by the payment gateway.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3 w-full">
+                    <button
+                      onClick={() => { setStep('payment'); setErrorMessage(''); }}
+                      className="w-full py-3 bg-[#10b981] text-[#0d2a21] rounded-full font-black text-xs uppercase tracking-widest hover:bg-[#059669] transition-all"
+                    >
+                      Try Again
+                    </button>
+                    <a
+                      href={`/room/${room.id}`}
+                      className="text-[10px] font-bold text-white/30 hover:text-white/60 transition-colors uppercase tracking-widest"
+                    >
+                      Check room access anyway →
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: Premium Unlock Success State */}
               {step === 'success' && (
                 <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 animate-fade-in">
                   <div className="relative">
