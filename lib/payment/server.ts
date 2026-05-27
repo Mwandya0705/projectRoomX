@@ -374,17 +374,30 @@ export async function verifyPayment(paymentId: string): Promise<{
     }
 
     // ClickPesa status values: SUCCESS, SETTLED, PROCESSING, PENDING, FAILED
-    const raw_status = String(record.status || '').toUpperCase()
+    // Try every known field name ClickPesa may use across API versions
+    const raw_status = String(
+      record.status ||
+      record.paymentStatus ||
+      record.transactionStatus ||
+      record.payment_status ||
+      record.transaction_status ||
+      ''
+    ).toUpperCase()
+
+    // Also treat a non-zero collectedAmount as implicit confirmation
+    const collected = Number(record.collectedAmount || record.collected_amount || 0)
+
     const normalizedStatus =
-      raw_status === 'SUCCESS' || raw_status === 'SETTLED' ? 'success'
-      : raw_status === 'FAILED' ? 'failed'
+      raw_status === 'SUCCESS' || raw_status === 'SETTLED' || raw_status === 'COMPLETED' ? 'success'
+      : raw_status === 'FAILED'  || raw_status === 'DECLINED' || raw_status === 'CANCELLED' ? 'failed'
+      : collected > 0 ? 'success'   // amount collected → treat as success even if status label is unusual
       : 'pending'
 
-    console.log('[Payment] Status for', paymentId, '→', raw_status, '(normalized:', normalizedStatus + ')')
+    console.log('[Payment] Status for', paymentId, '→ raw:', raw_status, '| collected:', collected, '| normalized:', normalizedStatus)
     return {
       status: normalizedStatus,
-      amount: Number(record.collectedAmount || 0),
-      currency: String(record.collectedCurrency || 'TZS'),
+      amount: collected,
+      currency: String(record.collectedCurrency || record.currency || 'TZS'),
       metadata: (record.metadata as Record<string, string>) ?? {},
     }
   } catch (error) {

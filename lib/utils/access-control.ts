@@ -42,12 +42,13 @@ export async function checkRoomAccess(
       return { hasAccess: true, isCreator: false, isAdmin: roomMember.role === 'admin' }
     }
 
-    // Public rooms: authenticated users can access
-    if (room.is_public) {
+    // Public rooms WITHOUT a price: free access for all authenticated users
+    const hasPriceSet = room.subscription_price_id && room.subscription_price_id.length > 0
+    if (room.is_public && !hasPriceSet) {
       return { hasAccess: true, isCreator: false, isAdmin: false }
     }
 
-    // For private rooms, check for active subscription
+    // Paid rooms (public or private): must have an active subscription
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('*')

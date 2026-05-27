@@ -119,16 +119,23 @@ const AnimatedButton = ({ text, href }: { text: string; href: string }) => {
 }
 
 export const BlogCard = ({ post }: { post: typeof blogPosts[0] }) => {
-  const router = useTransitionRouter()
-  
   return (
-    <div 
-      onClick={() => router.push(post.href || "#")} 
-      className="flex flex-col rounded-[20px] font-sans overflow-hidden bg-[#e9e9e1] border border-[#d8d8ce]/60 hover:shadow-2xl transition-all duration-300 group cursor-pointer"
+    <a
+      href={post.href || '#'}
+      className="flex flex-col rounded-[20px] font-sans overflow-hidden bg-[#e9e9e1] border border-[#d8d8ce]/60 hover:shadow-2xl transition-all duration-300 group cursor-pointer no-underline"
     >
       <div className="aspect-[16/10] overflow-hidden relative bg-black/5">
         {post.image.endsWith('.mp4') ? (
-          <video autoPlay loop muted playsInline preload="auto" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+          /* autoPlay + muted + playsInline = works in every browser without user interaction
+             and without requiring the visitor to be signed in */
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          >
             <source src={post.image} type="video/mp4" />
           </video>
         ) : (
@@ -160,7 +167,7 @@ export const BlogCard = ({ post }: { post: typeof blogPosts[0] }) => {
           <div className="text-xs sm:text-sm text-[#0d2a21]/50 font-medium font-sans">{post.date}</div>
         </div>
       </div>
-    </div>
+    </a>
   )
 }
 
